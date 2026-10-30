@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-cinema: #09090B;
+    --card-cinema: #17171C;
+    --card-hover: #202027;
+    --border-cinema: #2A2A35;
+    --border-cinema-subtle: #1F1F28;
+    --gold-muted: #D6AD65;
+    --gold-light: #F4DE9C;
+    --gold-dark: #A88339;
+    --burgundy: #8E3048;
+    --burgundy-light: #B84764;
+    --burgundy-dark: #5A1E2E;
+  }
+
+  body {
+    background-color: #09090B;
+    color: #EDEDED;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* Custom subtle studio scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0D0D11;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2A2A38;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #D6AD65;
+  }
+}
+
+/* Custom cinematic utility accents */
+.font-cinematic {
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.05em;
+}
+
+.font-tech {
+  font-family: 'Space Grotesk', monospace;
+}
+
+.gold-gradient-text {
+  background: linear-gradient(135deg, #FFF0B8 0%, #D6AD65 50%, #A47D2E 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.burgundy-gradient-text {
+  background: linear-gradient(135deg, #F0809C 0%, #8E3048 60%, #581827 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.cinema-glass {
+  background: rgba(23, 23, 28, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(214, 173, 101, 0.12);
+}
+
+.cinema-card-glow {
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.8), 0 0 20px -5px rgba(214, 173, 101, 0.07);
+}
+
+.cinema-gold-glow {
+  box-shadow: 0 0 25px -4px rgba(214, 173, 101, 0.25);
+}
+
+.cinema-burgundy-glow {
+  box-shadow: 0 0 25px -4px rgba(142, 48, 72, 0.3);
+}
+
+/* Film grain subtle overlay */
+.film-grain {
+  background-image: radial-gradient(rgba(214, 173, 101, 0.04) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* Studio ambient backlight */
+.ambient-cinema-lights {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 500px;
+  background: radial-gradient(circle 800px at 50% -100px, rgba(142, 48, 72, 0.15), rgba(214, 173, 101, 0.08) 40%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
