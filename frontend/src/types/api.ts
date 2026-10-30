@@ -87,4 +87,99 @@ export interface HealthCheckResponse {
   gpuWorkersAvailable: number;
   avgQueueWaitSec: number;
   activeModel: string;
+  databaseConnected?: boolean;
+  databaseStatus?: string;
+  databaseName?: string;
+}
+
+export interface ProjectCreatePayload {
+  title: string;
+  originalVideoId: string;
+  replacementFaceId: string;
+  userId?: string | null;
+  consentConfirmed: boolean;
+}
+
+export interface ProjectCreateResult {
+  projectId: string;
+  userId?: string | null;
+  title: string;
+  originalVideoId: string;
+  replacementFaceId: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  activeJob?: {
+    jobId: string;
+    projectId: string;
+    status: string;
+    progress: number;
+    currentStage: string;
+    errorMessage?: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+export interface ConsentPayload {
+  projectId: string;
+  consentGiven: boolean;
+  consentTextVersion?: string;
+  affirmation?: string;
+}
+
+export interface ConsentResult {
+  consentId: string;
+  projectId: string;
+  consentGiven: boolean;
+  consentTextVersion: string;
+  affirmation: string;
+  createdAt: string;
+}
+
+export interface DetectedActorTrack {
+  trackId: string;
+  label: string;
+  confidence: number;
+  thumbnailFileId: string;
+  thumbnailUrl: string;
+  occurrences: number;
+  timestamps: number[];
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  landmarks?: number[][];
+}
+
+export interface FaceDetectionJobResult {
+  detectionJobId: string;
+  projectId: string;
+  videoId: string;
+  detectionStatus: 'queued' | 'extracting_frames' | 'detecting_faces' | 'grouping_tracks' | 'completed' | 'failed';
+  progress: number;
+  currentStage: string;
+  videoMetadata?: {
+    width: number;
+    height: number;
+    fps: number;
+    durationSeconds: number;
+    frameCount: number;
+  };
+  sampledFrameCount: number;
+  detectedFaceCount: number;
+  tracks: DetectedActorTrack[];
+  selectedTrackId?: string;
+  errorMessage?: string | null;
+  createdAt: string;
+  completedAt?: string | null;
+}
+
+export interface TrackSelectionResponseData {
+  projectId: string;
+  selectedTrackId: string;
+  selectedTrack?: DetectedActorTrack;
+  message: string;
 }

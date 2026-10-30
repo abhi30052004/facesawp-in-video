@@ -80,4 +80,6 @@ temp/
 tmp/
 output/
 outputs/
+storage/
+backend/storage/
 

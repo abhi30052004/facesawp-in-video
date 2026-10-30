@@ -1,0 +1,35 @@
+==============================================================================
+YuNet Face Detection Model - OpenCV Zoo
+==============================================================================
+
+Model Name: YuNet (face_detection_yunet_2023mar.onnx)
+Model Architecture: YuNet (Lightweight Convolutional Face Detector)
+Origin: OpenCV Zoo (https://github.com/opencv/opencv_zoo)
+Original Repository: https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet
+License: Apache License 2.0 / MIT License (OpenCV Zoo)
+
+Model Checksum (SHA-256):
+8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4 (face_detection_yunet_2023mar.onnx)
+
+Attribution & Notice:
+Copyright (c) 2021-2023 OpenCV Zoo Contributors
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Notes:
+- This model is strictly used for face detection, bounding box localization,
+  and 5-point facial landmark identification (left eye, right eye, nose tip,
+  left mouth corner, right mouth corner).
+- No facial recognition, identity embedding, or identity classification is
+  performed by this model or downloaded weights.
+- CPU inference only using cv2.FaceDetectorYN.
+==============================================================================

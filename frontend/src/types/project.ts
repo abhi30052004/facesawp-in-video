@@ -12,6 +12,7 @@ export interface VideoMetadata {
   fps?: number;
   format: VideoFormat;
   isDemoSample?: boolean;
+  uploadId?: string;
 }
 
 export interface TargetFacePreset {
@@ -88,6 +89,23 @@ export interface FaceSwapConfiguration {
   watermarkEnabled: boolean;
 }
 
+export interface DetectedActorTrack {
+  trackId: string;
+  label: string;
+  confidence: number;
+  thumbnailFileId: string;
+  thumbnailUrl: string;
+  occurrences: number;
+  timestamps: number[];
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  landmarks?: number[][];
+}
+
 export interface FaceSwapProject {
   id: string;
   title: string;
@@ -97,6 +115,8 @@ export interface FaceSwapProject {
   updatedAt: string;
   sourceVideo?: VideoMetadata;
   targetFace?: TargetFaceSelection;
+  detectedTracks?: DetectedActorTrack[];
+  selectedActorTrackId?: string;
   configuration: FaceSwapConfiguration;
   consentGranted: boolean;
   consentTimestamp?: string;

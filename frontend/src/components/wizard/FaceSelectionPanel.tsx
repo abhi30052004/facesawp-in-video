@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { UserCheck, Upload, Sparkles, Check, AlertCircle, Info, Star } from 'lucide-react';
+import { UserCheck, Upload, Sparkles, Check, AlertCircle, Info, Star, Loader2 } from 'lucide-react';
 import { TargetFacePreset, TargetFaceSelection } from '../../types/project';
 import { DEMO_ACTOR_PRESETS } from '../../services/mockData';
 import { validateImageFile } from '../../utils/mediaValidation';
 import { Badge } from '../common/Badge';
+import { bollySwapApi } from '../../services/api';
 
 interface FaceSelectionPanelProps {
   selectedFace?: TargetFaceSelection;
@@ -17,6 +18,7 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
   const [activeTab, setActiveTab] = useState<'roster' | 'upload'>('roster');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const categories = ['All', 'Romantic Era', 'Cinematic Legends', 'Action Heroes', 'Contemporary Stars'];
@@ -25,24 +27,36 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
     ? DEMO_ACTOR_PRESETS
     : DEMO_ACTOR_PRESETS.filter((p) => p.category === categoryFilter);
 
-  const handleCustomImageUpload = (file: File) => {
+  const handleCustomImageUpload = async (file: File) => {
     setUploadError(null);
+    setUploadProgress(0);
+
     const validation = validateImageFile(file);
     if (!validation.isValid) {
       setUploadError(validation.error || 'Invalid image file');
+      setUploadProgress(null);
       return;
     }
 
-    const objectUrl = URL.createObjectURL(file);
-    const customSelection: TargetFaceSelection = {
-      type: 'custom',
-      name: file.name.replace(/\.[^/.]+$/, ''),
-      previewUrl: objectUrl,
-      isDemo: false,
-      detectedLandmarksCount: 468, // Simulated landmark count for display
-      qualityRating: 'Excellent',
-    };
-    onFaceSelected(customSelection);
+    try {
+      const uploadRes = await bollySwapApi.uploadTargetFace(file, (p) => setUploadProgress(p));
+      const objectUrl = URL.createObjectURL(file);
+
+      const customSelection: TargetFaceSelection = {
+        type: 'custom',
+        id: uploadRes.faceId,
+        name: file.name.replace(/\.[^/.]+$/, ''),
+        previewUrl: uploadRes.previewUrl || objectUrl,
+        isDemo: false,
+        detectedLandmarksCount: 468,
+        qualityRating: 'Excellent',
+      };
+      onFaceSelected(customSelection);
+    } catch (err: any) {
+      setUploadError(err?.message || 'Face image upload failed.');
+    } finally {
+      setUploadProgress(null);
+    }
   };
 
   const handlePresetSelect = (preset: TargetFacePreset) => {
@@ -254,12 +268,30 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
               Upload JPG or PNG up to 10MB. For optimal re-targeting, use a high-resolution, evenly-lit headshot looking directly into the lens.
             </p>
 
-            <button
-              type="button"
-              className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#D6AD65]/40 text-[#D6AD65] hover:bg-[#D6AD65]/10 transition-colors"
-            >
-              Browse Image Files
-            </button>
+            {uploadProgress !== null ? (
+              <div className="w-full max-w-xs mx-auto space-y-2 mt-2">
+                <div className="flex justify-between items-center text-xs font-mono text-[#D6AD65]">
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Uploading Face Portrait...
+                  </span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-[#20202B] h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-[#D6AD65] to-[#8E3048] h-full transition-all duration-300 rounded-full"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#D6AD65]/40 text-[#D6AD65] hover:bg-[#D6AD65]/10 transition-colors"
+              >
+                Browse Image Files
+              </button>
+            )}
           </div>
 
           {/* Honest guidelines note */}

@@ -1,14 +1,18 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { FaceSwapProject, TargetFaceSelection, VideoMetadata } from '../types/project';
+import { DetectedActorTrack, FaceSwapProject, TargetFaceSelection, VideoMetadata } from '../types/project';
 import { StudioUsageStats } from '../types/api';
 import { bollySwapApi } from '../services/api';
 import { INITIAL_MOCK_STATS } from '../services/mockData';
+
+const WIZARD_DRAFT_STORAGE_KEY = 'bollyswap_wizard_draft_v4';
 
 interface WizardDraft {
   step: 'video' | 'face' | 'consent' | 'processing' | 'results';
   title: string;
   sourceVideo?: VideoMetadata;
   targetFace?: TargetFaceSelection;
+  detectedTracks?: DetectedActorTrack[];
+  selectedActorTrackId?: string;
   configuration: {
     faceEnhance: boolean;
     colorHarmony: boolean;
@@ -24,6 +28,8 @@ interface WizardDraft {
 const DEFAULT_WIZARD_DRAFT: WizardDraft = {
   step: 'video',
   title: 'Cinematic Sequence #01',
+  detectedTracks: [],
+  selectedActorTrackId: undefined,
   configuration: {
     faceEnhance: true,
     colorHarmony: true,
@@ -53,8 +59,26 @@ const ProjectContext = createContext<ProjectContextType | null>(null);
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [projects, setProjects] = useState<FaceSwapProject[]>([]);
   const [stats, setStats] = useState<StudioUsageStats>(INITIAL_MOCK_STATS);
-  const [wizardDraft, setWizardDraft] = useState<WizardDraft>(DEFAULT_WIZARD_DRAFT);
+  const [wizardDraft, setWizardDraft] = useState<WizardDraft>(() => {
+    try {
+      const stored = localStorage.getItem(WIZARD_DRAFT_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch {
+      // Ignore fallback
+    }
+    return DEFAULT_WIZARD_DRAFT;
+  });
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(WIZARD_DRAFT_STORAGE_KEY, JSON.stringify(wizardDraft));
+    } catch (e) {
+      console.warn('Failed to persist wizard draft', e);
+    }
+  }, [wizardDraft]);
 
   const refreshProjects = useCallback(async () => {
     setIsLoading(true);

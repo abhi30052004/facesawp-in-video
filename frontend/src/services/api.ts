@@ -1,10 +1,12 @@
 import {
   ApiResponse,
   CreateSwapJobRequest,
+  FaceDetectionJobResult,
   FaceUploadResult,
   HealthCheckResponse,
   StudioUsageStats,
   SwapJobStatusResponse,
+  TrackSelectionResponseData,
   VideoUploadResult,
 } from '../types/api';
 import { FaceSwapProject } from '../types/project';
@@ -71,29 +73,66 @@ class BollySwapApiService {
   }
 
   /**
-   * Upload video footage
+   * Upload video footage with real streaming progress
    */
-  async uploadVideo(file: File): Promise<VideoUploadResult> {
+  async uploadVideo(file: File, onProgress?: (percent: number) => void): Promise<VideoUploadResult> {
     if (this.liveBackendEnabled) {
-      const formData = new FormData();
-      formData.append('file', file);
+      return new Promise((resolve, reject) => {
+        const formData = new FormData();
+        formData.append('file', file);
 
-      const response = await fetch(`${this.baseUrl}/videos/upload`, {
-        method: 'POST',
-        headers: {
-          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-        },
-        body: formData,
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${this.baseUrl}/videos/upload`);
+
+        if (this.apiKey) {
+          xhr.setRequestHeader('Authorization', `Bearer ${this.apiKey}`);
+        }
+
+        if (xhr.upload && onProgress) {
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const percent = Math.round((event.loaded / event.total) * 100);
+              onProgress(percent);
+            }
+          };
+        }
+
+        xhr.onload = () => {
+          try {
+            const json: ApiResponse<VideoUploadResult> = JSON.parse(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300 && json.success) {
+              const data = json.data;
+              // Ensure storageUrl is absolute for player compatibility
+              if (data.storageUrl && !data.storageUrl.startsWith('http') && !data.storageUrl.startsWith('blob:')) {
+                const hostBase = this.baseUrl.replace(/\/api\/v1\/?$/, '');
+                data.storageUrl = `${hostBase}${data.storageUrl}`;
+              }
+              resolve(data);
+            } else {
+              const errMsg = (json as any)?.error?.message || `Video upload failed with status ${xhr.status}`;
+              reject(new Error(errMsg));
+            }
+          } catch (e) {
+            reject(new Error(`Failed to parse server upload response (HTTP ${xhr.status})`));
+          }
+        };
+
+        xhr.onerror = () => {
+          reject(new Error('Network error during video upload. Please check backend connection.'));
+        };
+
+        xhr.send(formData);
       });
-
-      if (!response.ok) {
-        throw new Error(`Upload failed with status ${response.status}`);
-      }
-      const result: ApiResponse<VideoUploadResult> = await response.json();
-      return result.data;
     }
 
-    // Local client-side demo representation
+    // Local client-side demo representation with synthetic progress
+    if (onProgress) {
+      onProgress(30);
+      await new Promise((r) => setTimeout(r, 200));
+      onProgress(80);
+      await new Promise((r) => setTimeout(r, 200));
+      onProgress(100);
+    }
     const localUrl = URL.createObjectURL(file);
     return {
       fileId: `vid_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -109,29 +148,63 @@ class BollySwapApiService {
   }
 
   /**
-   * Upload & validate target actor face photo
+   * Upload & validate target actor face photo with real progress
    */
-  async uploadTargetFace(file: File): Promise<FaceUploadResult> {
+  async uploadTargetFace(file: File, onProgress?: (percent: number) => void): Promise<FaceUploadResult> {
     if (this.liveBackendEnabled) {
-      const formData = new FormData();
-      formData.append('image', file);
+      return new Promise((resolve, reject) => {
+        const formData = new FormData();
+        formData.append('file', file);
 
-      const response = await fetch(`${this.baseUrl}/faces/detect`, {
-        method: 'POST',
-        headers: {
-          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-        },
-        body: formData,
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${this.baseUrl}/faces/upload`);
+
+        if (this.apiKey) {
+          xhr.setRequestHeader('Authorization', `Bearer ${this.apiKey}`);
+        }
+
+        if (xhr.upload && onProgress) {
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const percent = Math.round((event.loaded / event.total) * 100);
+              onProgress(percent);
+            }
+          };
+        }
+
+        xhr.onload = () => {
+          try {
+            const json: ApiResponse<FaceUploadResult> = JSON.parse(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300 && json.success) {
+              const data = json.data;
+              if (data.previewUrl && !data.previewUrl.startsWith('http') && !data.previewUrl.startsWith('blob:')) {
+                const hostBase = this.baseUrl.replace(/\/api\/v1\/?$/, '');
+                data.previewUrl = `${hostBase}${data.previewUrl}`;
+              }
+              resolve(data);
+            } else {
+              const errMsg = (json as any)?.error?.message || `Face upload failed with status ${xhr.status}`;
+              reject(new Error(errMsg));
+            }
+          } catch (e) {
+            reject(new Error(`Failed to parse server upload response (HTTP ${xhr.status})`));
+          }
+        };
+
+        xhr.onerror = () => {
+          reject(new Error('Network error during face upload. Please check backend connection.'));
+        };
+
+        xhr.send(formData);
       });
-
-      if (!response.ok) {
-        throw new Error(`Face analysis failed with status ${response.status}`);
-      }
-      const result: ApiResponse<FaceUploadResult> = await response.json();
-      return result.data;
     }
 
     // Client-side demo representation
+    if (onProgress) {
+      onProgress(40);
+      await new Promise((r) => setTimeout(r, 150));
+      onProgress(100);
+    }
     const localUrl = URL.createObjectURL(file);
     return {
       faceId: `face_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -145,6 +218,88 @@ class BollySwapApiService {
       },
       embeddingConfidence: 0.982,
       qualityPassed: true,
+    };
+  }
+
+  /**
+   * Submit likeness consent record
+   */
+  async recordConsent(payload: {
+    projectId: string;
+    consentGiven: boolean;
+    consentTextVersion?: string;
+    affirmation?: string;
+  }): Promise<boolean> {
+    if (this.liveBackendEnabled) {
+      const response = await fetch(`${this.baseUrl}/consent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        },
+        body: JSON.stringify({
+          projectId: payload.projectId,
+          consentGiven: payload.consentGiven,
+          consentTextVersion: payload.consentTextVersion || 'v1.0',
+          affirmation: payload.affirmation || 'Likeness consent affirmed for production.',
+        }),
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json?.error?.message || 'Failed to record consent record.');
+      }
+      return true;
+    }
+    return true;
+  }
+
+  /**
+   * Create Project in MongoDB
+   */
+  async createProject(payload: {
+    title: string;
+    originalVideoId: string;
+    replacementFaceId: string;
+    userId?: string | null;
+    consentConfirmed: boolean;
+  }): Promise<any> {
+    if (this.liveBackendEnabled) {
+      const response = await fetch(`${this.baseUrl}/projects`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        },
+        body: JSON.stringify({
+          title: payload.title,
+          originalVideoId: payload.originalVideoId,
+          replacementFaceId: payload.replacementFaceId,
+          userId: payload.userId || null,
+          consentConfirmed: payload.consentConfirmed,
+        }),
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json?.error?.message || `Project creation failed (HTTP ${response.status})`);
+      }
+      const result = await response.json();
+      return result.data;
+    }
+
+    return {
+      projectId: `proj_${Date.now()}`,
+      title: payload.title,
+      status: 'uploaded',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      activeJob: {
+        jobId: `job_${Date.now()}`,
+        status: 'uploaded',
+        progress: 0.0,
+        currentStage: 'Asset Ingestion Complete — Awaiting Phase 4 Processing Pipeline',
+      },
     };
   }
 
@@ -261,6 +416,102 @@ class BollySwapApiService {
       // Ignore
     }
     return INITIAL_MOCK_STATS;
+  }
+
+  /**
+   * Helper to resolve file URL from upload ID
+   */
+  getFileUrl(fileId: string): string {
+    return `${this.baseUrl}/files/${fileId}`;
+  }
+
+  /**
+   * Trigger real OpenCV YuNet face detection on video footage
+   */
+  async detectFaces(projectId: string, videoId: string): Promise<FaceDetectionJobResult> {
+    const response = await fetch(`${this.baseUrl}/faces/detect`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+      },
+      body: JSON.stringify({ projectId, videoId }),
+    });
+
+    if (!response.ok) {
+      const json = await response.json().catch(() => ({}));
+      throw new Error(json?.error?.message || `Face detection failed with status HTTP ${response.status}`);
+    }
+
+    const result: ApiResponse<FaceDetectionJobResult> = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Poll face detection job status
+   */
+  async getDetectionJob(detectionJobId: string): Promise<FaceDetectionJobResult> {
+    const response = await fetch(`${this.baseUrl}/faces/detect/${detectionJobId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      const json = await response.json().catch(() => ({}));
+      throw new Error(json?.error?.message || `Failed to fetch detection job (HTTP ${response.status})`);
+    }
+
+    const result: ApiResponse<FaceDetectionJobResult> = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Get detected face tracks for project
+   */
+  async getProjectFaces(projectId: string): Promise<FaceDetectionJobResult> {
+    const response = await fetch(`${this.baseUrl}/projects/${projectId}/faces`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      const json = await response.json().catch(() => ({}));
+      throw new Error(json?.error?.message || `Failed to fetch project faces (HTTP ${response.status})`);
+    }
+
+    const result: ApiResponse<FaceDetectionJobResult> = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Select candidate actor track in the video to replace
+   */
+  async selectProjectActorTrack(
+    projectId: string,
+    selectedTrackId: string
+  ): Promise<TrackSelectionResponseData> {
+    const response = await fetch(`${this.baseUrl}/projects/${projectId}/faces/select`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+      },
+      body: JSON.stringify({ selectedTrackId }),
+    });
+
+    if (!response.ok) {
+      const json = await response.json().catch(() => ({}));
+      throw new Error(json?.error?.message || `Track selection failed (HTTP ${response.status})`);
+    }
+
+    const result: ApiResponse<TrackSelectionResponseData> = await response.json();
+    return result.data;
   }
 }
 

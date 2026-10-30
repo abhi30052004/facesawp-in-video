@@ -1,0 +1,43 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+
+# Local Storage (Videos, Face Images, Temp files)
+storage/
+storage/*
+!storage/.gitkeep
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Distribution / Packaging
+dist/
+build/
+*.egg-info/
+
+# Large AI models and weights
+*.pt
+*.pth
+*.onnx
+*.safetensors
+weights/
+checkpoints/
+
+# Temporary files
+temp/
+tmp/
+*.log

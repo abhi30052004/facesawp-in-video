@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Film, AlertCircle, Play, Pause, RotateCcw, Sparkles } from 'lucide-react';
+import { Upload, Film, AlertCircle, Play, Pause, RotateCcw, Sparkles, Loader2 } from 'lucide-react';
 import { VideoMetadata } from '../../types/project';
 import { extractVideoMetadata, validateVideoFile } from '../../utils/mediaValidation';
 import { formatBytes, formatDuration } from '../../utils/formatters';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
 import { DEMO_SAMPLE_VIDEOS } from '../../services/mockData';
+import { bollySwapApi } from '../../services/api';
 
 interface VideoUploadPanelProps {
   currentVideo?: VideoMetadata;
@@ -21,6 +22,7 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,24 +30,43 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
   const handleFile = async (file: File) => {
     setError(null);
     setIsAnalyzing(true);
+    setUploadProgress(0);
+
     try {
       const basicValidation = validateVideoFile(file);
       if (!basicValidation.isValid) {
         setError(basicValidation.error || 'Invalid video file');
         setIsAnalyzing(false);
+        setUploadProgress(null);
         return;
       }
 
-      const result = await extractVideoMetadata(file);
-      if (result.isValid && result.data) {
-        onVideoSelected(result.data);
-      } else {
-        setError(result.error || 'Failed to analyze video');
+      // Extract client-side metadata
+      const metaResult = await extractVideoMetadata(file);
+      if (!metaResult.isValid || !metaResult.data) {
+        setError(metaResult.error || 'Failed to decode video stream');
+        setIsAnalyzing(false);
+        setUploadProgress(null);
+        return;
       }
-    } catch {
-      setError('An unexpected error occurred while processing the video.');
+
+      // Stream to real backend upload endpoint if enabled
+      const uploadRes = await bollySwapApi.uploadVideo(file, (percent) => {
+        setUploadProgress(percent);
+      });
+
+      const finalMetadata: VideoMetadata = {
+        ...metaResult.data,
+        uploadId: uploadRes.fileId,
+        url: uploadRes.storageUrl || metaResult.data.url,
+      };
+
+      onVideoSelected(finalMetadata);
+    } catch (err: any) {
+      setError(err?.message || 'An unexpected error occurred while uploading the video.');
     } finally {
       setIsAnalyzing(false);
+      setUploadProgress(null);
     }
   };
 
@@ -140,17 +161,35 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
               Supports MP4, MOV, or WebM format. Crisp lighting & clear facial visibility recommended.
             </p>
 
-            <Button
-              size="sm"
-              variant="outline"
-              isLoading={isAnalyzing}
-              onClick={(e) => {
-                e.stopPropagation();
-                fileInputRef.current?.click();
-              }}
-            >
-              Browse Local Files
-            </Button>
+            {uploadProgress !== null ? (
+              <div className="w-full space-y-2 mt-2">
+                <div className="flex justify-between items-center text-xs font-mono text-[#D6AD65]">
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Streaming to Studio Storage...
+                  </span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-[#20202B] h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-[#D6AD65] to-[#8E3048] h-full transition-all duration-300 rounded-full"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                isLoading={isAnalyzing}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+              >
+                Browse Local Files
+              </Button>
+            )}
           </div>
         </div>
       ) : (

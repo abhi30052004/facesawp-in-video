@@ -9,25 +9,36 @@ import {
 } from 'lucide-react';
 import { VideoUploadPanel } from '../components/wizard/VideoUploadPanel';
 import { FaceSelectionPanel } from '../components/wizard/FaceSelectionPanel';
+import { ActorTrackSelectionPanel } from '../components/wizard/ActorTrackSelectionPanel';
 import { ConsentGateModal } from '../components/wizard/ConsentGateModal';
 import { ProcessingStageView } from '../components/wizard/ProcessingStageView';
 import { ResultsComparisonView } from '../components/wizard/ResultsComparisonView';
-import { FaceSwapProject, TargetFaceSelection, VideoMetadata } from '../types/project';
+import { DetectedActorTrack, FaceSwapProject, TargetFaceSelection, VideoMetadata } from '../types/project';
 import { useProjects } from '../context/ProjectContext';
 import { Button } from '../components/common/Button';
+import { bollySwapApi } from '../services/api';
 
 type WizardStep = 'video' | 'face' | 'processing' | 'results';
 
 export const CreateProjectPage: React.FC = () => {
   const navigate = useNavigate();
-  const { saveCurrentProject, deductCreditForRender } = useProjects();
+  const { wizardDraft, updateWizardDraft, saveCurrentProject, deductCreditForRender } = useProjects();
 
-  const [currentStep, setCurrentStep] = useState<WizardStep>('video');
-  const [projectTitle, setProjectTitle] = useState('Monsoon Soliloquy Re-enactment');
-  const [sourceVideo, setSourceVideo] = useState<VideoMetadata | undefined>();
-  const [targetFace, setTargetFace] = useState<TargetFaceSelection | undefined>();
+  const initialStep: WizardStep =
+    wizardDraft.step === 'video' || wizardDraft.step === 'face' || wizardDraft.step === 'processing' || wizardDraft.step === 'results'
+      ? wizardDraft.step
+      : 'video';
+  const [currentStep, setCurrentStep] = useState<WizardStep>(initialStep);
+  const [projectTitle, setProjectTitle] = useState(wizardDraft.title || 'Monsoon Soliloquy Re-enactment');
+  const [sourceVideo, setSourceVideo] = useState<VideoMetadata | undefined>(wizardDraft.sourceVideo);
+  const [targetFace, setTargetFace] = useState<TargetFaceSelection | undefined>(wizardDraft.targetFace);
+  const [detectedTracks, setDetectedTracks] = useState<DetectedActorTrack[]>(wizardDraft.detectedTracks || []);
+  const [selectedActorTrackId, setSelectedActorTrackId] = useState<string | undefined>(wizardDraft.selectedActorTrackId);
+  const [activeProjectId] = useState<string>(() => wizardDraft.activeProjectId || `proj_${Date.now()}`);
+
   const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
   const [showConfigDrawer, setShowConfigDrawer] = useState(false);
+  const [backendJobData, setBackendJobData] = useState<any>(null);
 
   // Studio Pipeline Configuration
   const [config, setConfig] = useState({
@@ -42,9 +53,22 @@ export const CreateProjectPage: React.FC = () => {
   const canProceedToFace = !!sourceVideo;
   const canLaunchProcess = !!sourceVideo && !!targetFace;
 
-  const handleConsentConfirmed = () => {
+  const handleConsentConfirmed = async () => {
     setIsConsentModalOpen(false);
     deductCreditForRender();
+
+    try {
+      const proj = await bollySwapApi.createProject({
+        title: projectTitle,
+        originalVideoId: sourceVideo?.uploadId || 'vid_sample_source',
+        replacementFaceId: targetFace?.id || 'face_sample_target',
+        consentConfirmed: true,
+      });
+      setBackendJobData(proj?.activeJob || null);
+    } catch (e) {
+      console.warn('Backend project creation skipped or failed:', e);
+    }
+
     setCurrentStep('processing');
   };
 
@@ -61,6 +85,8 @@ export const CreateProjectPage: React.FC = () => {
       updatedAt: new Date().toISOString(),
       sourceVideo,
       targetFace,
+      detectedTracks,
+      selectedActorTrackId,
       configuration: config,
       consentGranted: true,
       consentTimestamp: new Date().toISOString(),
@@ -90,6 +116,15 @@ export const CreateProjectPage: React.FC = () => {
   const handleReset = () => {
     setSourceVideo(undefined);
     setTargetFace(undefined);
+    setDetectedTracks([]);
+    setSelectedActorTrackId(undefined);
+    updateWizardDraft({
+      sourceVideo: undefined,
+      targetFace: undefined,
+      detectedTracks: [],
+      selectedActorTrackId: undefined,
+      step: 'video',
+    });
     setCurrentStep('video');
   };
 
@@ -276,9 +311,46 @@ export const CreateProjectPage: React.FC = () => {
           <div className="space-y-6">
             <VideoUploadPanel
               currentVideo={sourceVideo}
-              onVideoSelected={(video) => setSourceVideo(video)}
-              onClearVideo={() => setSourceVideo(undefined)}
+              onVideoSelected={(video) => {
+                setSourceVideo(video);
+                updateWizardDraft({
+                  sourceVideo: video,
+                  activeProjectId,
+                });
+              }}
+              onClearVideo={() => {
+                setSourceVideo(undefined);
+                setDetectedTracks([]);
+                setSelectedActorTrackId(undefined);
+                updateWizardDraft({
+                  sourceVideo: undefined,
+                  detectedTracks: [],
+                  selectedActorTrackId: undefined,
+                });
+              }}
             />
+
+            {/* Real OpenCV YuNet Face Detection & Actor Selection Panel */}
+            {sourceVideo && (
+              <ActorTrackSelectionPanel
+                projectId={activeProjectId}
+                sourceVideo={sourceVideo}
+                detectedTracks={detectedTracks}
+                selectedTrackId={selectedActorTrackId}
+                onTracksDetected={(tracks, defaultId) => {
+                  setDetectedTracks(tracks);
+                  if (defaultId) setSelectedActorTrackId(defaultId);
+                  updateWizardDraft({
+                    detectedTracks: tracks,
+                    selectedActorTrackId: defaultId,
+                  });
+                }}
+                onTrackSelected={(trackId) => {
+                  setSelectedActorTrackId(trackId);
+                  updateWizardDraft({ selectedActorTrackId: trackId });
+                }}
+              />
+            )}
 
             {/* Step navigation bottom bar */}
             <div className="pt-4 border-t border-[#20202C] flex items-center justify-between">
@@ -302,7 +374,10 @@ export const CreateProjectPage: React.FC = () => {
           <div className="space-y-6">
             <FaceSelectionPanel
               selectedFace={targetFace}
-              onFaceSelected={(face) => setTargetFace(face)}
+              onFaceSelected={(face) => {
+                setTargetFace(face);
+                updateWizardDraft({ targetFace: face });
+              }}
             />
 
             {/* Step navigation bottom bar */}
@@ -333,6 +408,7 @@ export const CreateProjectPage: React.FC = () => {
           <ProcessingStageView
             sourceVideo={sourceVideo}
             targetFace={targetFace}
+            activeJob={backendJobData}
             onProcessingComplete={handleProcessingComplete}
           />
         )}

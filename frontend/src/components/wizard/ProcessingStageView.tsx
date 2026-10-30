@@ -17,20 +17,25 @@ import { Badge } from '../common/Badge';
 interface ProcessingStageViewProps {
   sourceVideo?: VideoMetadata;
   targetFace?: TargetFaceSelection;
+  activeJob?: any;
   onProcessingComplete: () => void;
 }
 
 export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
   sourceVideo,
   targetFace,
+  activeJob,
   onProcessingComplete,
 }) => {
   const [currentStageIdx, setCurrentStageIdx] = useState(0);
   const [progress, setProgress] = useState(5);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [logs, setLogs] = useState<string[]>([
-    'Initializing BollyMesh AI runtime environment...',
+    activeJob
+      ? `[MONGODB] Registered Job ID: ${activeJob.jobId} (Status: ${activeJob.status})`
+      : 'Initializing BollyMesh AI runtime environment...',
     'Demuxing video container: ' + (sourceVideo?.name || 'input_stream.mp4'),
+    '[PHASE 3 NOTICE] Uploads and records are real in MongoDB. Face detection and model inference will be active in Phase 4.',
   ]);
   const logContainerRef = useRef<HTMLDivElement>(null);
 

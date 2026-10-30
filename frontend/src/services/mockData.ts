@@ -324,7 +324,7 @@ export const INITIAL_STUDIO_SETTINGS: StudioSettings = {
   apiConfig: {
     backendUrl: 'http://127.0.0.1:8000/api/v1',
     apiKey: 'bolly_live_sec_demo_9824bf98a',
-    useLiveBackend: false, // Default to frontend demo mode for Phase 1
+    useLiveBackend: true, // Connected to local FastAPI backend
     connectionStatus: 'offline_demo',
     lastPingMs: 12,
   },
