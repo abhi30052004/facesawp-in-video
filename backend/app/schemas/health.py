@@ -68,6 +68,11 @@ class HealthData(BaseModel):
         alias="faceSwapLicense",
         description="License designation for pretrained neural weights",
     )
+    storage_backend: Optional[str] = Field(
+        default="local",
+        alias="storageBackend",
+        description="Active persistent media storage provider ('local', 'r2', 's3')",
+    )
 
     model_config = ConfigDict(
         populate_by_name=True,

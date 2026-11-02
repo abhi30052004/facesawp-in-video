@@ -74,6 +74,11 @@ class BaseStorageService(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def get_download_url(self, storage_path: str) -> Optional[str]:
+        """Returns public or presigned download URL if remote, or None if local."""
+        pass
+
+    @abc.abstractmethod
     async def save_bytes(
         self,
         data: bytes,
@@ -283,6 +288,10 @@ class LocalStorageService(BaseStorageService):
             raise ValueError("Path traversal attempt detected.")
         return target
 
+    def get_download_url(self, storage_path: str) -> Optional[str]:
+        """Local storage serves files directly from local disk, so no remote URL."""
+        return None
+
     async def save_bytes(
         self,
         data: bytes,
@@ -320,8 +329,229 @@ class LocalStorageService(BaseStorageService):
         )
 
 
+class S3R2StorageService(BaseStorageService):
+    """
+    Cloudflare R2 / AWS S3 compatible persistent object storage implementation.
+    Safely validates file signatures, streams to S3/R2, and maintains a local cache
+    for OpenCV/FFmpeg filesystem access on ephemeral container environments (e.g. Render).
+    """
+
+    CHUNK_SIZE = 1024 * 1024  # 1 MB chunk
+
+    def __init__(
+        self,
+        bucket_name: str,
+        endpoint_url: Optional[str] = None,
+        access_key_id: Optional[str] = None,
+        secret_access_key: Optional[str] = None,
+        region_name: str = "auto",
+        public_url: Optional[str] = None,
+        cache_dir: Optional[Path] = None,
+    ):
+        self.bucket_name = bucket_name
+        self.endpoint_url = endpoint_url
+        self.access_key_id = access_key_id
+        self.secret_access_key = secret_access_key
+        self.region_name = region_name or "auto"
+        self.public_url = public_url.rstrip("/") if public_url else None
+        self.base_dir = (
+            cache_dir or (Path(__file__).resolve().parent.parent.parent / "storage" / "r2_cache")
+        ).resolve()
+        self._s3_client = None
+        self._ensure_directories()
+
+    def _ensure_directories(self) -> None:
+        """Ensures local cache directories exist."""
+        for folder in ["videos", "faces", "temp"]:
+            (self.base_dir / folder).mkdir(parents=True, exist_ok=True)
+
+    @property
+    def client(self):
+        """Lazy initialization of boto3 client."""
+        if self._s3_client is None:
+            try:
+                import boto3
+                from botocore.config import Config
+            except ImportError:
+                raise RuntimeError(
+                    "boto3 is required for Cloudflare R2 / S3 storage. Run 'pip install boto3'."
+                )
+
+            s3_config = Config(
+                signature_version="s3v4",
+                retries={"max_attempts": 3, "mode": "standard"},
+            )
+            self._s3_client = boto3.client(
+                "s3",
+                endpoint_url=self.endpoint_url,
+                aws_access_key_id=self.access_key_id,
+                aws_secret_access_key=self.secret_access_key,
+                region_name=self.region_name,
+                config=s3_config,
+            )
+        return self._s3_client
+
+    async def save_upload(
+        self,
+        upload_file: UploadFile,
+        subfolder: str,
+        max_size_bytes: int,
+        allowed_extensions: Set[str],
+        allowed_mimes: Set[str],
+        prefix: str = "file",
+    ) -> FileStorageResult:
+        """Validates stream into local cache, then replicates to Cloudflare R2 / S3."""
+        local_service = LocalStorageService(base_dir=self.base_dir)
+        local_result = await local_service.save_upload(
+            upload_file=upload_file,
+            subfolder=subfolder,
+            max_size_bytes=max_size_bytes,
+            allowed_extensions=allowed_extensions,
+            allowed_mimes=allowed_mimes,
+            prefix=prefix,
+        )
+
+        local_file_path = self.base_dir / local_result.storage_path
+        try:
+            extra_args = {"ContentType": local_result.content_type}
+            self.client.upload_file(
+                Filename=str(local_file_path),
+                Bucket=self.bucket_name,
+                Key=local_result.storage_path,
+                ExtraArgs=extra_args,
+            )
+            logger.info("Persisted %s to R2/S3 bucket '%s'", local_result.storage_path, self.bucket_name)
+        except Exception as e:
+            logger.error("Failed to upload %s to R2/S3: %s", local_result.storage_path, e)
+            if local_file_path.exists():
+                local_file_path.unlink()
+            raise
+
+        return local_result
+
+    async def save_bytes(
+        self,
+        data: bytes,
+        subfolder: str,
+        extension: str,
+        prefix: str = "file",
+        content_type: str = "image/jpeg",
+        original_filename: str = "file.jpg",
+    ) -> FileStorageResult:
+        """Saves bytes to local cache and uploads directly to Cloudflare R2 / S3."""
+        local_service = LocalStorageService(base_dir=self.base_dir)
+        local_result = await local_service.save_bytes(
+            data=data,
+            subfolder=subfolder,
+            extension=extension,
+            prefix=prefix,
+            content_type=content_type,
+            original_filename=original_filename,
+        )
+
+        try:
+            self.client.put_object(
+                Bucket=self.bucket_name,
+                Key=local_result.storage_path,
+                Body=data,
+                ContentType=content_type,
+            )
+            logger.info(
+                "Persisted %s bytes to R2/S3 bucket '%s' key '%s'",
+                len(data),
+                self.bucket_name,
+                local_result.storage_path,
+            )
+        except Exception as e:
+            logger.error("Failed to put object %s to R2/S3: %s", local_result.storage_path, e)
+            raise
+
+        return local_result
+
+    def get_file_path(self, storage_path: str) -> Path:
+        """
+        Returns local filesystem Path for OpenCV/FFmpeg.
+        If file was flushed from local ephemeral container disk, restores it from R2/S3 on demand.
+        """
+        local_path = (self.base_dir / storage_path).resolve()
+        if not str(local_path).startswith(str(self.base_dir)):
+            raise ValueError("Path traversal attempt detected.")
+
+        if not local_path.exists() or local_path.stat().st_size == 0:
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            logger.info("Local cache miss for %s; fetching from R2/S3 bucket '%s'", storage_path, self.bucket_name)
+            try:
+                self.client.download_file(
+                    Bucket=self.bucket_name,
+                    Key=storage_path,
+                    Filename=str(local_path),
+                )
+                logger.info("Cached %s locally from R2/S3", storage_path)
+            except Exception as e:
+                logger.error("Failed to retrieve %s from R2/S3: %s", storage_path, e)
+                raise FileNotFoundError(f"File '{storage_path}' not found in R2/S3 storage.")
+
+        return local_path
+
+    async def delete_file(self, storage_path: str) -> bool:
+        """Deletes from R2/S3 and removes local cached copy."""
+        deleted = False
+        try:
+            self.client.delete_object(Bucket=self.bucket_name, Key=storage_path)
+            deleted = True
+            logger.info("Deleted %s from R2/S3 bucket '%s'", storage_path, self.bucket_name)
+        except Exception as e:
+            logger.warning("Failed to delete %s from R2/S3: %s", storage_path, e)
+
+        local_path = (self.base_dir / storage_path).resolve()
+        if local_path.exists():
+            try:
+                local_path.unlink()
+            except Exception as e:
+                logger.warning("Failed to remove local file %s: %s", local_path, e)
+
+        return deleted
+
+    def get_download_url(self, storage_path: str) -> Optional[str]:
+        """Returns direct public CDN URL or presigned download URL."""
+        if self.public_url:
+            return f"{self.public_url}/{storage_path}"
+        try:
+            url = self.client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": self.bucket_name, "Key": storage_path},
+                ExpiresIn=3600,
+            )
+            return url
+        except Exception as e:
+            logger.warning("Failed to generate presigned URL for %s: %s", storage_path, e)
+            return None
+
+
 def get_storage_service() -> BaseStorageService:
-    """Dependency provider for storage service."""
+    """Dependency provider for storage service. Auto-detects R2/S3 or LocalStorage."""
     from app.core.config import get_settings
+
     settings = get_settings()
+
+    is_r2_or_s3 = (
+        settings.STORAGE_BACKEND.lower() in ("r2", "s3")
+        or bool(settings.R2_BUCKET_NAME)
+    )
+
+    if is_r2_or_s3 and settings.R2_BUCKET_NAME:
+        endpoint = settings.S3_ENDPOINT_URL
+        if not endpoint and settings.R2_ACCOUNT_ID:
+            endpoint = f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+        return S3R2StorageService(
+            bucket_name=settings.R2_BUCKET_NAME,
+            endpoint_url=endpoint,
+            access_key_id=settings.R2_ACCESS_KEY_ID,
+            secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+            region_name=settings.S3_REGION_NAME,
+            public_url=settings.R2_PUBLIC_URL,
+            cache_dir=settings.resolved_storage_dir / "r2_cache",
+        )
+
     return LocalStorageService(base_dir=settings.resolved_storage_dir)

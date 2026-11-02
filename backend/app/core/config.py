@@ -41,10 +41,20 @@ class Settings(BaseSettings):
     MONGODB_URI: Optional[str] = None
     DATABASE_NAME: str = "bollyswap"
 
-    # Storage Configuration (Local Filesystem with Cloudflare R2 Abstraction)
+    # Storage Configuration (Local Filesystem with Cloudflare R2 / S3 Abstraction)
+    STORAGE_BACKEND: str = "local"
     STORAGE_DIR: str = "storage"
     MAX_VIDEO_SIZE_BYTES: int = 100 * 1024 * 1024   # 100 MB
     MAX_IMAGE_SIZE_BYTES: int = 10 * 1024 * 1024    # 10 MB
+
+    # Cloudflare R2 / S3 Storage Credentials
+    R2_ACCOUNT_ID: Optional[str] = None
+    R2_ACCESS_KEY_ID: Optional[str] = None
+    R2_SECRET_ACCESS_KEY: Optional[str] = None
+    R2_BUCKET_NAME: Optional[str] = None
+    R2_PUBLIC_URL: Optional[str] = None
+    S3_ENDPOINT_URL: Optional[str] = None
+    S3_REGION_NAME: str = "auto"
 
     # AI Face Detection Configuration (OpenCV YuNet - CPU Only)
     YUNET_MODEL_PATH: str = "models/face_detection_yunet_2023mar.onnx"

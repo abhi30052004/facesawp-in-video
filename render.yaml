@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: bollyswap-backend
+    name: facesawp-in-video
     env: python
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && python scripts/download_models.py
     startCommand: uvicorn app.main:create_app --factory --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     plan: starter
@@ -19,17 +19,29 @@ services:
       - key: API_PREFIX
         value: /api/v1
       - key: FRONTEND_URL
-        value: https://bollyswap.vercel.app
+        value: https://facesawp-in-video.vercel.app
       - key: CORS_ORIGINS
-        value: '["https://bollyswap.vercel.app","http://localhost:5173"]'
+        value: '["https://facesawp-in-video.vercel.app","http://localhost:5173"]'
       - key: DATABASE_NAME
         value: bollyswap
       - key: MONGODB_URI
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: STORAGE_BACKEND
+        value: local
       - key: STORAGE_DIR
         value: storage
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_PUBLIC_URL
+        sync: false
       - key: YUNET_MODEL_PATH
         value: models/face_detection_yunet_2023mar.onnx
       - key: FACE_SWAP_ENABLED

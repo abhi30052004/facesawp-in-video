@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 
 from app.core.config import Settings, get_settings
 from app.schemas.health import HealthData, HealthResponse
@@ -93,6 +93,7 @@ def build_health_data(settings: Settings, db_service: DatabaseService) -> Health
         active_model="BollyMesh-v2.4-NeuralBlend",
         face_swap_status=swap_status,
         face_swap_license=swap_license,
+        storage_backend="r2" if settings.R2_BUCKET_NAME else settings.STORAGE_BACKEND,
     )
 
 
@@ -281,6 +282,11 @@ async def get_stored_file(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"File with ID '{file_id}' not found.",
         )
+
+    # If storage provider has a direct public or presigned URL, redirect client directly
+    remote_url = storage_service.get_download_url(doc["storage_path"])
+    if remote_url:
+        return RedirectResponse(url=remote_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     file_path = storage_service.get_file_path(doc["storage_path"])
     if not file_path.exists():
