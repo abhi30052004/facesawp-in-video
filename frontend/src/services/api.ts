@@ -15,10 +15,19 @@ import { INITIAL_MOCK_PROJECTS, INITIAL_MOCK_STATS } from './mockData';
 const LOCAL_STORAGE_KEY_PROJECTS = 'bollyswap_projects_v1';
 const LOCAL_STORAGE_KEY_STATS = 'bollyswap_stats_v1';
 
+export const getDefaultBackendUrl = (): string => {
+  const envUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+  if (envUrl) {
+    const clean = envUrl.replace(/\/$/, '');
+    return clean.endsWith('/api/v1') ? clean : `${clean}/api/v1`;
+  }
+  return 'http://127.0.0.1:8000/api/v1';
+};
+
 class BollySwapApiService {
-  private baseUrl: string = 'http://127.0.0.1:8000/api/v1';
+  private baseUrl: string = getDefaultBackendUrl();
   private apiKey: string = '';
-  private liveBackendEnabled: boolean = false;
+  private liveBackendEnabled: boolean = true;
 
   constructor() {
     this.initStorage();
@@ -337,6 +346,44 @@ class BollySwapApiService {
       etaSeconds: 14,
       logChunk: ['Job initialized on BollyMesh GPU cluster node #04'],
     };
+  }
+
+  /**
+   * Poll live face swap job status and telemetry
+   */
+  async getSwapJob(jobId: string): Promise<any> {
+    if (this.liveBackendEnabled) {
+      const response = await fetch(`${this.baseUrl}/swaps/${jobId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        },
+      });
+      if (response.ok) {
+        const json = await response.json();
+        return json.data;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Fetch result artifacts for completed or evaluated swap job
+   */
+  async getSwapResult(jobId: string): Promise<any> {
+    if (this.liveBackendEnabled) {
+      const response = await fetch(`${this.baseUrl}/swaps/${jobId}/result`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        },
+      });
+      if (response.ok) {
+        const json = await response.json();
+        return json.data;
+      }
+    }
+    return null;
   }
 
   /**

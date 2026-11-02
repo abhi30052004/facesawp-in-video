@@ -32,6 +32,11 @@ from app.schemas.detection import (
     TrackSelectionResponse,
     ProjectFacesResponse,
 )
+from app.schemas.swap import (
+    SwapJobCreateRequest,
+    SwapJobResponse,
+    SwapResultResponse,
+)
 from app.services.database import DatabaseService, get_database_service
 from app.services.groq_service import GroqService, get_groq_service
 from app.services.storage_service import (
@@ -42,6 +47,10 @@ from app.services.storage_service import (
 )
 from app.services.project_service import ProjectService, get_project_service
 from app.services.detection_service import DetectionService, get_detection_service
+from app.services.video_processing.processing_pipeline import (
+    VideoProcessingPipeline,
+    get_video_processing_pipeline,
+)
 
 logger = logging.getLogger("bollyswap.api")
 
@@ -623,4 +632,121 @@ async def select_project_actor_track(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(e),
         )
+
+
+# -------------------------------------------------------------
+# Video Processing & Face Swap Pipeline Endpoints (Phase 5A)
+# -------------------------------------------------------------
+
+@api_router.post(
+    "/swaps/create",
+    response_model=SwapJobResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Video Processing & Swap Pipeline"],
+    summary="Create Face-Swap Processing Job",
+    description=(
+        "Validates project assets, verifies likeness consent, evaluates model availability, "
+        "and executes the face-swap video processing pipeline or reports honest 'model_not_configured' status."
+    ),
+)
+async def create_swap_job(
+    request: SwapJobCreateRequest,
+    pipeline: VideoProcessingPipeline = Depends(get_video_processing_pipeline),
+) -> SwapJobResponse:
+    """Creates a real processing job and evaluates pipeline/model readiness."""
+    try:
+        job_data = await pipeline.create_and_evaluate_job(
+            project_id=request.project_id,
+            source_video_id=request.source_video_id,
+            replacement_face_id=request.replacement_face_id,
+            selected_actor_track_id=request.selected_actor_track_id,
+        )
+
+        message = (
+            "Video processing pipeline initialized. Neural face-swap model engine is unconfigured "
+            "(configure FACE_SWAP_ENABLED=true and FACE_SWAP_MODEL_PATH in .env)."
+            if job_data.status == "model_not_configured"
+            else f"Swap processing job initialized with status '{job_data.status}'."
+        )
+
+        return SwapJobResponse(
+            success=True,
+            data=job_data,
+            message=message,
+        )
+    except (ValueError, FileNotFoundError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e),
+        )
+
+
+@api_router.get(
+    "/swaps/{job_id}",
+    response_model=SwapJobResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Video Processing & Swap Pipeline"],
+    summary="Get Swap Job Progress & Status",
+    description="Retrieves live processing metrics, current execution stage, and completion timestamps.",
+)
+async def get_swap_job(
+    job_id: str,
+    pipeline: VideoProcessingPipeline = Depends(get_video_processing_pipeline),
+) -> SwapJobResponse:
+    """Retrieves status and progress of a video processing job."""
+    try:
+        job = await pipeline.get_job(job_id)
+        if not job:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Swap job with ID '{job_id}' not found.",
+            )
+        return SwapJobResponse(
+            success=True,
+            data=job,
+            message=f"Swap job retrieved (status: {job.status}).",
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e),
+        )
+
+
+@api_router.get(
+    "/swaps/{job_id}/result",
+    response_model=SwapResultResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Video Processing & Swap Pipeline"],
+    summary="Get Swap Job Output Artifacts",
+    description="Fetches output video download URL and render metrics, or honest unconfigured status message.",
+)
+async def get_swap_result(
+    job_id: str,
+    pipeline: VideoProcessingPipeline = Depends(get_video_processing_pipeline),
+) -> SwapResultResponse:
+    """Retrieves result artifacts and stream URL for completed jobs."""
+    try:
+        result = await pipeline.get_swap_result(job_id)
+        return SwapResultResponse(
+            success=True,
+            data=result,
+            message=result.message,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e),
+        )
+
 

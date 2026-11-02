@@ -175,6 +175,26 @@ class FaceDetectorYuNet:
 
         return results
 
+    def detect_in_bgr_frame(
+        self,
+        frame: np.ndarray,
+        frame_index: int = 0,
+        timestamp_seconds: float = 0.0,
+    ) -> List[DetectedFace]:
+        """
+        Runs YuNet face detection directly on a full BGR video frame.
+        """
+        h, w = frame.shape[:2]
+        sampled = SampledFrame(
+            frame_index=frame_index,
+            timestamp_seconds=timestamp_seconds,
+            image=frame,
+            original_width=w,
+            original_height=h,
+            scale_factor=1.0,
+        )
+        return self.detect_in_frame(sampled)
+
     def detect_in_video_frames(
         self,
         sampled_frames: List[SampledFrame],

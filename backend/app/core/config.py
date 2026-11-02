@@ -52,6 +52,21 @@ class Settings(BaseSettings):
     VIDEO_MAX_SAMPLED_FRAMES: int = 30
     VIDEO_MAX_FRAME_DIMENSION: int = 1280
 
+    # Video Processing Pipeline & Face Swapping (Phase 5A & 5B)
+    SWAP_MAX_FRAMES: int = 300
+    SWAP_PROCESSING_TIMEOUT_SECONDS: float = 120.0
+    SWAP_WATERMARK_TEXT: str = "BollySwap AI • Synthetic Media"
+    FACE_ALIGN_SIZE: int = 256
+    FACE_SWAP_MODEL_NAME: str = "unconfigured"
+    FFMPEG_PATH: Optional[str] = None
+
+    # AI Face Swap Engine Configuration (Phase 5B - ONNX Runtime CPU)
+    FACE_SWAP_ENABLED: bool = False
+    FACE_SWAP_MODEL_PATH: Optional[str] = None
+    FACE_SWAP_MODEL_LICENSE: str = "Unconfigured"
+    FACE_SWAP_PROVIDER: str = "CPUExecutionProvider"
+    FACE_SWAP_INPUT_SIZE: int = 128
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -125,6 +140,31 @@ class Settings(BaseSettings):
             base_dir = Path(__file__).resolve().parent.parent.parent
             path = base_dir / self.YUNET_MODEL_PATH
         return path
+
+    @property
+    def resolved_face_swap_model_path(self) -> Optional[Path]:
+        """Resolves absolute path for the configured face-swap ONNX model, if any."""
+        if not self.FACE_SWAP_MODEL_PATH:
+            return None
+        path = Path(self.FACE_SWAP_MODEL_PATH)
+        if not path.is_absolute():
+            base_dir = Path(__file__).resolve().parent.parent.parent
+            path = base_dir / self.FACE_SWAP_MODEL_PATH
+        return path
+
+    @property
+    def resolved_ffmpeg_path(self) -> str:
+        """Finds FFmpeg binary via configuration, imageio_ffmpeg, or PATH."""
+        import shutil
+        if self.FFMPEG_PATH and Path(self.FFMPEG_PATH).exists():
+            return self.FFMPEG_PATH
+        try:
+            import imageio_ffmpeg
+            return imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception:
+            pass
+        found = shutil.which("ffmpeg")
+        return found or "ffmpeg"
 
 
 @lru_cache()

@@ -20,6 +20,7 @@ import { formatDuration } from '../../utils/formatters';
 interface ResultsComparisonViewProps {
   sourceVideo?: VideoMetadata;
   targetFace?: TargetFaceSelection;
+  outputVideoUrl?: string;
   onReset: () => void;
   onSaveToProjects: () => void;
 }
@@ -27,6 +28,7 @@ interface ResultsComparisonViewProps {
 export const ResultsComparisonView: React.FC<ResultsComparisonViewProps> = ({
   sourceVideo,
   targetFace,
+  outputVideoUrl,
   onReset,
   onSaveToProjects,
 }) => {
@@ -45,6 +47,7 @@ export const ResultsComparisonView: React.FC<ResultsComparisonViewProps> = ({
   const videoUrl =
     sourceVideo?.url ||
     'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+  const swappedVideoUrl = outputVideoUrl || videoUrl;
 
   // Master Playback Synchronization
   const togglePlay = () => {
@@ -96,7 +99,7 @@ export const ResultsComparisonView: React.FC<ResultsComparisonViewProps> = ({
     setShowDownloadNote(true);
     // Create an anchor and initiate genuine client download of the preview clip
     const link = document.createElement('a');
-    link.href = videoUrl;
+    link.href = swappedVideoUrl;
     link.download = `BollySwap_${targetFace?.name.replace(/\s+/g, '_') || 'Render'}_1080p.mp4`;
     document.body.appendChild(link);
     link.click();
@@ -217,7 +220,7 @@ export const ResultsComparisonView: React.FC<ResultsComparisonViewProps> = ({
               <div className="relative h-full bg-black flex items-center justify-center overflow-hidden">
                 <video
                   ref={swappedVideoRef}
-                  src={videoUrl}
+                  src={swappedVideoUrl}
                   className="w-full h-full object-contain filter contrast-105 saturate-110"
                   muted
                   playsInline
@@ -260,7 +263,7 @@ export const ResultsComparisonView: React.FC<ResultsComparisonViewProps> = ({
               {/* Bottom Layer: Swapped Footage */}
               <video
                 ref={swappedVideoRef}
-                src={videoUrl}
+                src={swappedVideoUrl}
                 className="w-full h-full object-contain filter contrast-105 saturate-110"
                 muted
                 playsInline

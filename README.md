@@ -26,6 +26,7 @@
 - **Quick Action Hero Banner**: Features prominent "Start New Face Swap" CTA and active model versioning (`BollyMesh-v2.4`).
 - **Usage & Compute Statistics**:
   - Render Credits remaining (`420 / 500`)
+  
   - Swaps Rendered (`38 master sequences`)
   - Footage Processed (`18.5 mins`)
   - Cloud Storage Quota (`3.2 GB / 25 GB`)
@@ -83,6 +84,23 @@
 - **Icons**: Lucide React
 - **Routing**: React Router DOM v7
 - **API Architecture**: Typed API abstraction layer (`src/services/api.ts`) ready for Phase 2 FastAPI endpoints.
+
+---
+
+## 🎬 Project Architecture & Implementation Phases
+
+- **Phase 1 (Frontend)**: React 19 + TypeScript + Vite + Tailwind v4 + Framer Motion studio dashboard, wizard, consent gate, and synchronized player.
+- **Phase 2 (FastAPI & Groq)**: Python 3.12 backend, Pydantic v2 schemas, CORS, and Groq Cloud intelligence integration.
+- **Phase 3 (MongoDB Atlas & Storage)**: Asynchronous PyMongo database, binary file validation, projects, uploads, and consent records.
+- **Phase 4 (AI Face Detection & Tracking)**: OpenCV YuNet CPU face detection, 5-point landmark extraction, and actor track clustering.
+- **Phase 5A (Video Processing Pipeline)**: Modular frame streamer, 5-point canonical similarity alignment, lossless audio extraction, and MP4 container verification.
+- **Phase 5B (Neural Face Swap Engine)**:
+  - `LicensedFaceSwapModelAdapter` executing via ONNX Runtime CPU (`CPUExecutionProvider`).
+  - Feathered elliptical mask blending (`blur_sigma=9.0`) eliminating harsh boundary seams.
+  - Natural Reinhard LAB color matching harmonizing skin undertones, lighting temperature, and shadows.
+  - Temporal landmark smoothing across frames to mitigate micro-jitter and interpolate 1-2 frame momentary occlusions.
+  - Visible AI synthetic media watermark embedding (`BollySwap AI • Synthetic Media`).
+  - Strict honest status reporting (`model_not_configured`) when proprietary weights are unconfigured, refusing simulated or fake outputs.
 
 ---
 

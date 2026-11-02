@@ -14,6 +14,10 @@ from app.services.groq_service import GroqConfigurationError, GroqServiceError
 from app.services.storage_service import StorageValidationError
 from app.services.video_service import VideoProcessingError
 from app.services.face_detector import FaceDetectorError
+from app.services.video_processing.model_adapter import ModelNotConfiguredError
+from app.services.video_processing.video_reader import VideoReaderError
+from app.services.video_processing.audio_handler import AudioProcessingError
+from app.services.video_processing.video_writer import VideoWriterError
 
 # Configure structured logging
 logging.basicConfig(
@@ -62,10 +66,16 @@ def create_app() -> FastAPI:
     cors_origins = settings.CORS_ORIGINS
     if isinstance(cors_origins, str):
         cors_origins = [cors_origins]
+    else:
+        cors_origins = list(cors_origins)
+
+    if settings.FRONTEND_URL and settings.FRONTEND_URL not in cors_origins:
+        cors_origins.append(settings.FRONTEND_URL)
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
+        allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -138,6 +148,62 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(FaceDetectorError)
     async def face_detector_error_handler(_: Request, exc: FaceDetectorError) -> JSONResponse:
+        error_payload = ApiErrorResponse(
+            success=False,
+            error=ApiErrorDetail(
+                error_code=exc.error_code,
+                message=exc.message,
+            ),
+        )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=error_payload.model_dump(mode="json"),
+        )
+
+    @app.exception_handler(ModelNotConfiguredError)
+    async def model_not_configured_error_handler(_: Request, exc: ModelNotConfiguredError) -> JSONResponse:
+        error_payload = ApiErrorResponse(
+            success=False,
+            error=ApiErrorDetail(
+                error_code=exc.error_code,
+                message=exc.message,
+            ),
+        )
+        return JSONResponse(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            content=error_payload.model_dump(mode="json"),
+        )
+
+    @app.exception_handler(VideoReaderError)
+    async def video_reader_error_handler(_: Request, exc: VideoReaderError) -> JSONResponse:
+        error_payload = ApiErrorResponse(
+            success=False,
+            error=ApiErrorDetail(
+                error_code=exc.error_code,
+                message=exc.message,
+            ),
+        )
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content=error_payload.model_dump(mode="json"),
+        )
+
+    @app.exception_handler(AudioProcessingError)
+    async def audio_processing_error_handler(_: Request, exc: AudioProcessingError) -> JSONResponse:
+        error_payload = ApiErrorResponse(
+            success=False,
+            error=ApiErrorDetail(
+                error_code=exc.error_code,
+                message=exc.message,
+            ),
+        )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=error_payload.model_dump(mode="json"),
+        )
+
+    @app.exception_handler(VideoWriterError)
+    async def video_writer_error_handler(_: Request, exc: VideoWriterError) -> JSONResponse:
         error_payload = ApiErrorResponse(
             success=False,
             error=ApiErrorDetail(

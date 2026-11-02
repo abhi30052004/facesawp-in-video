@@ -105,6 +105,13 @@ class DatabaseService:
             await detection_jobs.create_index("video_id")
             await detection_jobs.create_index([("created_at", -1)])
 
+            # swap_jobs indexes (Phase 5A)
+            swap_jobs = self.db.swap_jobs
+            await swap_jobs.create_index("job_id", unique=True)
+            await swap_jobs.create_index("project_id")
+            await swap_jobs.create_index("status")
+            await swap_jobs.create_index([("created_at", -1)])
+
             logger.info("MongoDB Atlas indexes synchronized successfully.")
         except Exception as e:
             logger.warning("Index creation warning (may already exist or insufficient permissions): %s", e)

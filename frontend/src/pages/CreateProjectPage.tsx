@@ -39,6 +39,7 @@ export const CreateProjectPage: React.FC = () => {
   const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
   const [showConfigDrawer, setShowConfigDrawer] = useState(false);
   const [backendJobData, setBackendJobData] = useState<any>(null);
+  const [outputVideoUrl, setOutputVideoUrl] = useState<string | undefined>(undefined);
 
   // Studio Pipeline Configuration
   const [config, setConfig] = useState({
@@ -64,7 +65,22 @@ export const CreateProjectPage: React.FC = () => {
         replacementFaceId: targetFace?.id || 'face_sample_target',
         consentConfirmed: true,
       });
-      setBackendJobData(proj?.activeJob || null);
+
+      // Attempt to trigger real backend video processing swap job
+      try {
+        const swapJob = await bollySwapApi.createSwapJob({
+          projectId: proj?.projectId || activeProjectId,
+          title: projectTitle,
+          sourceVideoId: sourceVideo?.uploadId || 'vid_sample_source',
+          targetFaceId: targetFace?.id || 'face_sample_target',
+          targetFaceType: 'upload',
+          config,
+          consentConfirmed: true,
+        });
+        setBackendJobData(swapJob || proj?.activeJob || null);
+      } catch {
+        setBackendJobData(proj?.activeJob || null);
+      }
     } catch (e) {
       console.warn('Backend project creation skipped or failed:', e);
     }
@@ -72,7 +88,10 @@ export const CreateProjectPage: React.FC = () => {
     setCurrentStep('processing');
   };
 
-  const handleProcessingComplete = () => {
+  const handleProcessingComplete = (outUrl?: string) => {
+    if (outUrl) {
+      setOutputVideoUrl(outUrl);
+    }
     setCurrentStep('results');
   };
 
@@ -417,6 +436,7 @@ export const CreateProjectPage: React.FC = () => {
           <ResultsComparisonView
             sourceVideo={sourceVideo}
             targetFace={targetFace}
+            outputVideoUrl={outputVideoUrl}
             onReset={handleReset}
             onSaveToProjects={handleSaveToProjects}
           />

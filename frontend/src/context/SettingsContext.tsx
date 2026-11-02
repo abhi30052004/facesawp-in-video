@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ApiConnectionConfig, StudioAiPreferences, StudioSettings, UserProfile } from '../types/settings';
 import { INITIAL_STUDIO_SETTINGS } from '../services/mockData';
-import { bollySwapApi } from '../services/api';
+import { bollySwapApi, getDefaultBackendUrl } from '../services/api';
 
 const SETTINGS_STORAGE_KEY = 'bollyswap_studio_settings_v1';
 
@@ -18,15 +18,34 @@ const SettingsContext = createContext<SettingsContextType | null>(null);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<StudioSettings>(() => {
+    const defaultUrl = getDefaultBackendUrl();
     try {
       const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed: StudioSettings = JSON.parse(stored);
+        // Automatically adopt production VITE_API_BASE_URL if previously saved with localhost
+        const envUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+        if (
+          envUrl &&
+          parsed.apiConfig &&
+          (parsed.apiConfig.backendUrl.includes('127.0.0.1') || parsed.apiConfig.backendUrl.includes('localhost'))
+        ) {
+          parsed.apiConfig.backendUrl = defaultUrl;
+          parsed.apiConfig.useLiveBackend = true;
+        }
+        return parsed;
       }
     } catch {
       // Use defaults
     }
-    return INITIAL_STUDIO_SETTINGS;
+    return {
+      ...INITIAL_STUDIO_SETTINGS,
+      apiConfig: {
+        ...INITIAL_STUDIO_SETTINGS.apiConfig,
+        backendUrl: defaultUrl,
+        useLiveBackend: true,
+      },
+    };
   });
 
   useEffect(() => {

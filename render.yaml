@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: bollyswap-backend
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:create_app --factory --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    plan: starter
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: PORT
+        value: "10000"
+      - key: API_PREFIX
+        value: /api/v1
+      - key: FRONTEND_URL
+        value: https://bollyswap.vercel.app
+      - key: CORS_ORIGINS
+        value: '["https://bollyswap.vercel.app","http://localhost:5173"]'
+      - key: DATABASE_NAME
+        value: bollyswap
+      - key: MONGODB_URI
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: STORAGE_DIR
+        value: storage
+      - key: YUNET_MODEL_PATH
+        value: models/face_detection_yunet_2023mar.onnx
+      - key: FACE_SWAP_ENABLED
+        value: "false"
+      - key: FACE_SWAP_PROVIDER
+        value: CPUExecutionProvider
+      - key: FACE_SWAP_INPUT_SIZE
+        value: "128"
+

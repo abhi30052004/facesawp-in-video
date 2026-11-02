@@ -32,6 +32,13 @@ from app.schemas.detection import (
     TrackSelectionResponse,
     ProjectFacesResponse,
 )
+from app.schemas.swap import (
+    SwapJobCreateRequest,
+    SwapJobData,
+    SwapJobResponse,
+    SwapResultData,
+    SwapResultResponse,
+)
 
 __all__ = [
     "ApiResponse",
@@ -67,4 +74,9 @@ __all__ = [
     "TrackSelectionResultData",
     "TrackSelectionResponse",
     "ProjectFacesResponse",
+    "SwapJobCreateRequest",
+    "SwapJobData",
+    "SwapJobResponse",
+    "SwapResultData",
+    "SwapResultResponse",
 ]
