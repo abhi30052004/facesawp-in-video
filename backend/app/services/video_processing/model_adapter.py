@@ -144,11 +144,13 @@ class LicensedFaceSwapModelAdapter(BaseFaceSwapModelAdapter):
     def __init__(
         self,
         model_path: Path,
-        license_name: str = "Commercial-Permissive",
+        arcface_path: Optional[Path] = None,
+        license_name: str = "InsightFace-NonCommercial-Research",
         provider: str = "CPUExecutionProvider",
         input_size: int = 128,
     ):
         self.model_path = Path(model_path)
+        self.arcface_path = Path(arcface_path) if arcface_path else None
         self.license_name = license_name
         self.provider = provider
         self.input_size = input_size
@@ -156,10 +158,13 @@ class LicensedFaceSwapModelAdapter(BaseFaceSwapModelAdapter):
         self._is_available: bool = False
         self._input_meta: List[Dict[str, Any]] = []
         self._output_meta: List[Dict[str, Any]] = []
+        self.engine: Optional[Any] = None
+        self._cached_source_latent: Optional[np.ndarray] = None
+        self._cached_source_id: Optional[int] = None
 
     @property
     def is_available(self) -> bool:
-        return self._is_available and (self._session is not None)
+        return self._is_available and (self._session is not None or (self.engine is not None and self.engine.is_ready))
 
     def get_metadata(self) -> Dict[str, Any]:
         return {
@@ -172,18 +177,52 @@ class LicensedFaceSwapModelAdapter(BaseFaceSwapModelAdapter):
             "supported_backends": ["CPU"],
             "input_nodes": [m["name"] for m in self._input_meta],
             "output_nodes": [m["name"] for m in self._output_meta],
+            "arcface_model": self.arcface_path.name if self.arcface_path else None,
+            "neural_engine_ready": self.engine is not None and self.engine.is_ready,
         }
 
     def initialize(self) -> bool:
         """
         Loads the ONNX model into an ONNX Runtime InferenceSession configured
         for sequential CPU execution with thread pools.
+        If ArcFace model is also available, initializes full FaceSwapEngine.
         """
         if not self.model_path.exists() or not self.model_path.is_file():
             logger.warning("Face swap model file does not exist: %s", self.model_path)
             self._is_available = False
             return False
 
+        # Attempt initializing dedicated FaceSwapEngine if ArcFace model is present
+        if self.arcface_path and self.arcface_path.exists():
+            try:
+                from app.services.face_swap.face_swap_engine import (
+                    FaceSwapEngine,
+                    FaceSwapEngineConfig,
+                )
+                config = FaceSwapEngineConfig(
+                    inswapper_path=self.model_path,
+                    arcface_path=self.arcface_path,
+                    provider=self.provider,
+                    intra_op_num_threads=4,
+                )
+                engine = FaceSwapEngine(config)
+                if engine.initialize():
+                    self.engine = engine
+                    bundle = engine.loader.get_bundle()
+                    self._session = bundle.swap_session
+                    self._input_meta = bundle.swap_inputs
+                    self._output_meta = bundle.swap_outputs
+                    self._is_available = True
+                    logger.info(
+                        "LicensedFaceSwapModelAdapter initialized with full FaceSwapEngine (%s + %s)",
+                        self.model_path.name,
+                        self.arcface_path.name,
+                    )
+                    return True
+            except Exception as e:
+                logger.warning("Failed to initialize FaceSwapEngine in adapter: %s; falling back to direct session.", e)
+
+        # Fallback to standalone Inswapper session
         try:
             import onnxruntime as ort
 
@@ -234,6 +273,47 @@ class LicensedFaceSwapModelAdapter(BaseFaceSwapModelAdapter):
             self._session = None
             self._is_available = False
             return False
+
+    def get_or_compute_source_latent(self, replacement_face_bgr: np.ndarray) -> np.ndarray:
+        """
+        Computes and caches the 512-D identity latent vector from the replacement face image.
+        """
+        if self.engine is None or not self.engine.is_ready:
+            raise RuntimeError("Neural face swap engine is not ready.")
+
+        face_id = id(replacement_face_bgr)
+        if self._cached_source_id == face_id and self._cached_source_latent is not None:
+            return self._cached_source_latent
+
+        # Detect landmarks on replacement face
+        landmarks = self._detect_face_landmarks(replacement_face_bgr)
+        latent = self.engine.compute_source_identity(replacement_face_bgr, landmarks)
+        self._cached_source_latent = latent
+        self._cached_source_id = face_id
+        return latent
+
+    def _detect_face_landmarks(self, img_bgr: np.ndarray) -> List[List[float]]:
+        """Detects 5 facial landmarks using YuNet or falls back to canonical center landmarks."""
+        h, w = img_bgr.shape[:2]
+        try:
+            from app.core.config import get_settings
+            from app.services.face_detector import FaceDetectorYuNet
+            settings = get_settings()
+            if settings.resolved_yunet_model_path.exists():
+                detector = FaceDetectorYuNet(settings.resolved_yunet_model_path)
+                dets = detector.detect_in_bgr_frame(img_bgr, 0, 0.0)
+                if dets:
+                    return dets[0].landmarks
+        except Exception as err:
+            logger.debug("YuNet landmark detection fallback in adapter: %s", err)
+
+        return [
+            [0.3419 * w, 0.4615 * h],
+            [0.6565 * w, 0.4598 * h],
+            [0.5002 * w, 0.6405 * h],
+            [0.3709 * w, 0.8246 * h],
+            [0.6315 * w, 0.8232 * h],
+        ]
 
     def validate_inputs(
         self,
@@ -334,7 +414,7 @@ class LicensedFaceSwapModelAdapter(BaseFaceSwapModelAdapter):
         """
         Executes real neural inference via ONNX Runtime CPU.
         """
-        if not self.is_available or self._session is None:
+        if not self.is_available or (self._session is None and (self.engine is None or not self.engine.is_ready)):
             raise ModelNotConfiguredError(
                 "Face swap model adapter is not initialized. Ensure model exists and initialize() succeeded."
             )
@@ -343,6 +423,23 @@ class LicensedFaceSwapModelAdapter(BaseFaceSwapModelAdapter):
             raise ValueError("Invalid input dimensions or channels supplied to face-swap model.")
 
         orig_shape = source_aligned.shape[:2]
+
+        # If dedicated FaceSwapEngine is loaded, execute full neural swap with EMAP identity
+        if self.engine is not None and self.engine.is_ready:
+            source_latent = self.get_or_compute_source_latent(target_face)
+            h, w = source_aligned.shape[:2]
+            canonical_lm = [
+                [0.3419 * w, 0.4615 * h],
+                [0.6565 * w, 0.4598 * h],
+                [0.5002 * w, 0.6405 * h],
+                [0.3709 * w, 0.8246 * h],
+                [0.6315 * w, 0.8232 * h],
+            ]
+            target_crop = self.engine.preprocessor.align_target_face_128(source_aligned, canonical_lm)
+            swapped_128 = self.engine.swap_single_face(target_crop, source_latent)
+            if swapped_128.shape[:2] != orig_shape:
+                swapped_128 = cv2.resize(swapped_128, (orig_shape[1], orig_shape[0]), interpolation=cv2.INTER_LANCZOS4)
+            return swapped_128
 
         # Determine input sizes and layout from model input metadata
         feed_dict: Dict[str, np.ndarray] = {}
@@ -433,9 +530,11 @@ def get_face_swap_model_adapter() -> BaseFaceSwapModelAdapter:
         settings = get_settings()
         if settings.FACE_SWAP_ENABLED and settings.resolved_face_swap_model_path:
             model_path = settings.resolved_face_swap_model_path
+            arcface_path = settings.resolved_arcface_model_path
             if model_path.exists():
                 adapter = LicensedFaceSwapModelAdapter(
                     model_path=model_path,
+                    arcface_path=arcface_path,
                     license_name=settings.FACE_SWAP_MODEL_LICENSE,
                     provider=settings.FACE_SWAP_PROVIDER,
                     input_size=settings.FACE_SWAP_INPUT_SIZE,

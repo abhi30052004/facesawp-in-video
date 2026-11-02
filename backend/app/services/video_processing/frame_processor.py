@@ -174,7 +174,21 @@ class FrameProcessor:
             # In explicit diagnostic pipeline test mode, return original frame untouched
             return frame_bgr.copy(), False
 
-        # 4. Model inference via ONNX Runtime CPU
+        # 4. Fast neural path if dedicated FaceSwapEngine is active
+        if (
+            hasattr(self.model_adapter, "engine")
+            and self.model_adapter.engine is not None
+            and self.model_adapter.engine.is_ready
+        ):
+            source_latent = self.model_adapter.get_or_compute_source_latent(target_face_bgr)
+            composite, was_swapped = self.model_adapter.engine.process_frame(
+                frame_bgr=frame_bgr,
+                target_landmarks=smoothed_landmarks,
+                source_latent=source_latent,
+            )
+            return composite, was_swapped
+
+        # 5. Standard model inference via adapter canvas
         swapped_aligned = self.model_adapter.swap_face(
             source_aligned=aligned_res.aligned_face,
             target_face=target_face_bgr,

@@ -200,6 +200,7 @@ def test_app(mock_db, mock_storage):
             settings=settings,
             db_service=mock_db,
             storage_service=mock_storage,
+            model_adapter=UnconfiguredFaceSwapModelAdapter(),
         )
 
     app_instance.dependency_overrides[get_video_processing_pipeline] = override_pipeline
@@ -398,7 +399,12 @@ def test_consent_enforcement_in_pipeline(mock_db, mock_storage, ensure_fixtures)
     """Verifies that swap processing strictly requires likeness consent affirmation."""
     import asyncio
     settings = get_settings()
-    pipeline = VideoProcessingPipeline(settings=settings, db_service=mock_db, storage_service=mock_storage)
+    pipeline = VideoProcessingPipeline(
+        settings=settings,
+        db_service=mock_db,
+        storage_service=mock_storage,
+        model_adapter=UnconfiguredFaceSwapModelAdapter(),
+    )
 
     # Setup project WITHOUT consent
     mock_db.get_collection("projects").docs.append({
@@ -426,7 +432,12 @@ def test_job_status_transition_to_model_not_configured(mock_db, mock_storage, en
     """Verifies pipeline transitions to 'model_not_configured' with honest progress < 1.0."""
     import asyncio
     settings = get_settings()
-    pipeline = VideoProcessingPipeline(settings=settings, db_service=mock_db, storage_service=mock_storage)
+    pipeline = VideoProcessingPipeline(
+        settings=settings,
+        db_service=mock_db,
+        storage_service=mock_storage,
+        model_adapter=UnconfiguredFaceSwapModelAdapter(),
+    )
 
     # Register project, consent, video, replacement face
     shutil.copy(ensure_fixtures["audio_video"], mock_storage.base_dir / "source.mp4")

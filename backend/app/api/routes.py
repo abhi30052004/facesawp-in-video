@@ -69,6 +69,15 @@ def build_health_data(settings: Settings, db_service: DatabaseService) -> Health
     db_connected = db_service.is_connected
     db_status = db_service.status
 
+    try:
+        from app.services.video_processing.model_adapter import get_face_swap_model_adapter
+        adapter = get_face_swap_model_adapter()
+        swap_status = "ready" if adapter.is_available else "model_not_configured"
+        swap_license = settings.FACE_SWAP_MODEL_LICENSE if adapter.is_available else None
+    except Exception:
+        swap_status = "model_not_configured"
+        swap_license = None
+
     return HealthData(
         status="online" if (db_connected or not settings.is_mongodb_configured) else "degraded",
         version=settings.APP_VERSION,
@@ -82,6 +91,8 @@ def build_health_data(settings: Settings, db_service: DatabaseService) -> Health
         gpu_workers_available=0,
         avg_queue_wait_sec=0.0,
         active_model="BollyMesh-v2.4-NeuralBlend",
+        face_swap_status=swap_status,
+        face_swap_license=swap_license,
     )
 
 

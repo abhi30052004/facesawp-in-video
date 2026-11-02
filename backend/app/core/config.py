@@ -60,10 +60,11 @@ class Settings(BaseSettings):
     FACE_SWAP_MODEL_NAME: str = "unconfigured"
     FFMPEG_PATH: Optional[str] = None
 
-    # AI Face Swap Engine Configuration (Phase 5B - ONNX Runtime CPU)
-    FACE_SWAP_ENABLED: bool = False
-    FACE_SWAP_MODEL_PATH: Optional[str] = None
-    FACE_SWAP_MODEL_LICENSE: str = "Unconfigured"
+    # AI Face Swap Engine Configuration (Phase 5B & Phase 6 - ONNX Runtime CPU)
+    FACE_SWAP_ENABLED: bool = True
+    FACE_SWAP_MODEL_PATH: Optional[str] = "models/inswapper_128.onnx"
+    FACE_SWAP_ARCFACE_PATH: Optional[str] = "models/w600k_r50.onnx"
+    FACE_SWAP_MODEL_LICENSE: str = "InsightFace-NonCommercial-Research"
     FACE_SWAP_PROVIDER: str = "CPUExecutionProvider"
     FACE_SWAP_INPUT_SIZE: int = 128
 
@@ -150,6 +151,17 @@ class Settings(BaseSettings):
         if not path.is_absolute():
             base_dir = Path(__file__).resolve().parent.parent.parent
             path = base_dir / self.FACE_SWAP_MODEL_PATH
+        return path
+
+    @property
+    def resolved_arcface_model_path(self) -> Optional[Path]:
+        """Resolves absolute path for the ArcFace 512-D identity extractor ONNX model."""
+        if not self.FACE_SWAP_ARCFACE_PATH:
+            return None
+        path = Path(self.FACE_SWAP_ARCFACE_PATH)
+        if not path.is_absolute():
+            base_dir = Path(__file__).resolve().parent.parent.parent
+            path = base_dir / self.FACE_SWAP_ARCFACE_PATH
         return path
 
     @property

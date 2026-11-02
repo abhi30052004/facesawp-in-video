@@ -1,0 +1,54 @@
+================================================================================
+InsightFace Pretrained Neural Models & Inswapper License Notice
+================================================================================
+
+1. MODEL IDENTIFICATION & REPOSITORIES
+--------------------------------------------------------------------------------
+Model 1: Inswapper 128 (inswapper_128.onnx)
+  - Purpose: Neural face-swapping generator (128x128 canonical resolution)
+  - Upstream Project: InsightFace (https://github.com/deepinsight/insightface)
+  - Checkpoint Host: Hugging Face (ModelsLab/inswapper, Gourieff/ReActor)
+  - Input Tensors:
+      * 'target': [1, 3, 128, 128] float32 RGB normalized to [0, 1]
+      * 'source': [1, 512] float32 normalized identity latent vector
+  - Output Tensor:
+      * 'output': [1, 3, 128, 128] float32 RGB in range [0, 1]
+
+Model 2: ArcFace ResNet-50 (w600k_r50.onnx)
+  - Purpose: 512-dimensional facial identity embedding extraction
+  - Upstream Project: InsightFace Buffalo_L model zoo
+  - Checkpoint Host: Hugging Face (maze/faceX, Aitrepreneur/insightface)
+  - Input Tensor:
+      * 'data': [1, 3, 112, 112] float32 BGR normalized with mean=127.5, std=127.5
+  - Output Tensor:
+      * 512-dimensional normalized feature vector
+
+2. CODE LICENSING vs. PRETRAINED WEIGHTS LICENSING
+--------------------------------------------------------------------------------
+- Inference Code & Architecture: MIT License
+- Pretrained Weights (inswapper_128.onnx, w600k_r50.onnx):
+    NON-COMMERCIAL RESEARCH LICENSE
+    InsightFace Model License Agreement:
+    The pretrained weights are released exclusively for academic research,
+    educational evaluations, and non-commercial personal demonstrations.
+
+3. COMMERCIAL USE & RESTRICTIONS
+--------------------------------------------------------------------------------
+- Commercial Use Permission: NOT PERMITTED without an explicit commercial license
+  issued by the InsightFace team and DeepInsight.
+- Redistribution Restrictions: Weight redistribution is permitted strictly under
+  non-commercial terms. Commercial entities deploying this model for paid services,
+  advertising, or monetized SaaS must acquire a commercial license from DeepInsight.
+- Prohibited Uses: Generating non-consensual sexual content, deepfake misinformation,
+  defamatory media, or likeness spoofing without explicit verifiable consent.
+  BollySwap AI strictly requires positive biometric likeness consent prior to inference.
+
+4. ACADEMIC ATTRIBUTION
+--------------------------------------------------------------------------------
+InsightFace Project:
+Deng, J., Guo, J., Xue, N., & Zafeiriou, S. (2019).
+ArcFace: Additive Angular Margin Loss for Deep Face Recognition.
+In IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR).
+
+DeepInsight: https://github.com/deepinsight/insightface
+================================================================================

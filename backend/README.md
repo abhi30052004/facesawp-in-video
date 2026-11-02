@@ -1,4 +1,4 @@
-# BollySwap AI — Backend Foundation, Storage, Face Detection & Real Face Swap Pipeline (Phase 5B)
+# BollySwap AI — Backend Foundation, Storage, Face Detection & Real Face Swap Pipeline (Phase 6)
 
 Studio-grade AI video face-swapping backend for **BollySwap AI**, built with **Python 3.12**, **FastAPI**, **Pydantic v2**, **MongoDB Atlas**, **OpenCV YuNet**, **ONNX Runtime (CPU)**, **FFmpeg**, and **Groq Cloud SDK**.
 
@@ -10,10 +10,14 @@ Studio-grade AI video face-swapping backend for **BollySwap AI**, built with **P
 - **Web Framework**: FastAPI (Async ASGI)
 - **Database**: MongoDB Atlas (`AsyncMongoClient`, PyMongo 4.19+)
 - **Face Detection Model**: OpenCV YuNet (`cv2.FaceDetectorYN`) via ONNX Runtime CPU
-- **Neural Face-Swap Engine (Phase 5B)**:
-  - `LicensedFaceSwapModelAdapter`: Pluggable ONNX Runtime CPU execution provider.
-  - Dynamically inspects input nodes, handles NCHW/NHWC tensor layouts, normalizes inputs, executes CPU graph inference, and validates output shapes.
-  - `UnconfiguredFaceSwapModelAdapter`: Default honest adapter reporting `model_not_configured` when weights are unconfigured. Strictly prevents mock or fake results.
+- **Neural Face Replacement Engine (Phase 6)**:
+  - `FaceSwapEngine`: Dedicated engine coordinating real neural face replacement via ONNX Runtime CPU.
+  - `Inswapper 128` (`inswapper_128.onnx`): High-fidelity 128x128 neural face replacement network.
+  - `ArcFace ResNet-50` (`w600k_r50.onnx`): 512-dimensional facial biometric embedding extractor.
+  - `EMAP Projection`: Extracts 512x512 latent projection matrix directly from Inswapper initializers.
+  - `FacePreprocessor`: ArcFace 112x112 similarity alignment and Inswapper 128x128 canonical alignment with forward/inverse affine matrices.
+  - `FaceBlender`: Reinhard LAB color transfer + smooth Gaussian feathered alpha boundary composition (`blur_sigma=7.0`).
+  - `ModelValidator`: Verifies file integrity, SHA-256 checksums, and CPUExecutionProvider compatibility.
 - **Visual Harmonization & Video Pipeline**:
   - `FaceAligner`: 5-point canonical similarity transformation (ArcFace/InsightFace reference) with inverse re-projection.
   - `create_feathered_mask`: Elliptical mask with Gaussian gradient falloff (`blur_sigma=9.0`) to eliminate harsh perimeter seams.
@@ -104,18 +108,27 @@ Studio-grade AI video face-swapping backend for **BollySwap AI**, built with **P
 > - **We never fabricate fake inference results, return simulated swaps, or create false completed jobs.**
 > - If `FACE_SWAP_ENABLED` is `false` or no model file is configured, the system reports `status: "model_not_configured"` honestly, explaining that the pipeline, YuNet face detection, and tracking are operational and ready for licensed weights.
 
-### How to Configure a Licensed ONNX Face-Swap Model
-1. Obtain an authorized ONNX face-replacement model file.
-2. Place the `.onnx` model file in `backend/models/` (e.g. `backend/models/my_face_swap.onnx`).
-3. In `backend/.env`, set:
+### How to Download & Configure Real Pretrained Neural Weights
+1. Run the automated model downloader:
+   ```bash
+   python backend/scripts/download_models.py
+   ```
+   This downloads:
+   - `models/inswapper_128.onnx` (555 MB, SHA-256: `0fa95f167682b4f61edf24f8d66c46b4ab130e8be058f00c8150e6d0170ca72f`)
+   - `models/w600k_r50.onnx` (174 MB, SHA-256: `4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43`)
+2. In `backend/.env`, configure:
    ```env
    FACE_SWAP_ENABLED=true
-   FACE_SWAP_MODEL_PATH=models/my_face_swap.onnx
-   FACE_SWAP_MODEL_LICENSE=Commercial-Permissive
+   FACE_SWAP_MODEL_PATH=models/inswapper_128.onnx
+   FACE_SWAP_ARCFACE_PATH=models/w600k_r50.onnx
+   FACE_SWAP_MODEL_LICENSE=InsightFace-NonCommercial-Research
    FACE_SWAP_PROVIDER=CPUExecutionProvider
    FACE_SWAP_INPUT_SIZE=128
    ```
-4. Restart the FastAPI application. The `LicensedFaceSwapModelAdapter` will automatically load the model onto CPUExecutionProvider and process swaps sequentially.
+3. Run the automated test suite:
+   ```bash
+   pytest backend/tests/test_phase6_real_swap.py -v
+   ```
 
 ---
 

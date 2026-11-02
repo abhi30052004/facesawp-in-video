@@ -58,6 +58,16 @@ class HealthData(BaseModel):
         alias="activeModel",
         description="Designated face-swapping neural pipeline architecture",
     )
+    face_swap_status: str = Field(
+        default="ready",
+        alias="faceSwapStatus",
+        description="Status of the neural face replacement engine ('ready', 'model_not_configured')",
+    )
+    face_swap_license: Optional[str] = Field(
+        default="InsightFace-NonCommercial-Research",
+        alias="faceSwapLicense",
+        description="License designation for pretrained neural weights",
+    )
 
     model_config = ConfigDict(
         populate_by_name=True,
