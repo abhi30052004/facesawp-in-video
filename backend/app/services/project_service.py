@@ -100,8 +100,8 @@ class ProjectService:
     async def create_project(
         self,
         title: str,
-        original_video_id: str,
-        replacement_face_id: str,
+        original_video_id: Optional[str] = None,
+        replacement_face_id: Optional[str] = None,
         user_id: Optional[str] = None,
         project_id: Optional[str] = None,
         consent_confirmed: bool = True,
@@ -150,19 +150,22 @@ class ProjectService:
             await projects_col.insert_one(project_doc)
             project_doc.pop("_id", None)
 
-        # 2. Insert Processing Job
+        # 2. Insert Processing Job in both processing_jobs and swap_jobs collections
         jobs_col = self.db_service.get_collection("processing_jobs")
+        swap_jobs_col = self.db_service.get_collection("swap_jobs")
         job_doc = {
             "job_id": job_id,
             "project_id": proj_id,
             "status": initial_job_status,
             "progress": 0.0,
-            "current_stage": "Asset Ingestion Complete — Awaiting Phase 4 Processing Pipeline",
+            "current_step": "Asset Ingestion Complete — Ready for Processing",
+            "current_stage": "Asset Ingestion Complete — Ready for Processing",
             "error_message": None,
             "created_at": now,
             "updated_at": now,
         }
         await jobs_col.insert_one(job_doc)
+        await swap_jobs_col.insert_one(dict(job_doc))
         job_doc.pop("_id", None)
 
         # 3. Record consent if not already recorded

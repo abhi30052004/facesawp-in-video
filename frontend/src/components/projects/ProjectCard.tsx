@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Trash2, Clock, Eye } from 'lucide-react';
+import { Play, Trash2, Clock, Eye, Film } from 'lucide-react';
 import { FaceSwapProject } from '../../types/project';
 import { Card } from '../common/Card';
 import { Badge } from '../common/Badge';
@@ -20,14 +20,17 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSelect, onD
           onClick={() => onSelect(project)}
           className="aspect-video rounded-xl bg-black overflow-hidden relative mb-3 cursor-pointer group/thumb"
         >
-          <img
-            src={
-              project.targetFace?.previewUrl ||
-              'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&auto=format&fit=crop&q=80'
-            }
-            alt={project.title}
-            className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-500"
-          />
+          {project.result?.thumbnailUrl || project.targetFace?.previewUrl ? (
+            <img
+              src={project.result?.thumbnailUrl || project.targetFace?.previewUrl}
+              alt={project.title}
+              className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-500"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-[#D6AD65]/40">
+              <Film className="w-8 h-8" />
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
 
           {/* Status Badge */}

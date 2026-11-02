@@ -1,4 +1,12 @@
+import sys
+import asyncio
 import logging
+
+if sys.platform == "win32":
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    except Exception:
+        pass
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from fastapi import FastAPI, HTTPException, Request, status
@@ -280,6 +288,7 @@ def create_app() -> FastAPI:
 
     # Route Mounts
     app.include_router(root_router)
+    app.include_router(api_router, prefix="/api")
     app.include_router(api_router, prefix=settings.API_PREFIX)
 
     return app

@@ -62,9 +62,10 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   const videoUrl =
     project.result?.outputVideoUrl ||
     project.sourceVideo?.url ||
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+    '';
 
   const handleDownload = () => {
+    if (!videoUrl) return;
     const link = document.createElement('a');
     link.href = videoUrl;
     link.download = `${project.title.replace(/\s+/g, '_')}_Master.mp4`;
@@ -112,7 +113,9 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
           {/* Badges on video */}
           <div className="absolute top-3 left-3 flex items-center gap-2">
             <Badge variant="emerald">Master Output</Badge>
-            <Badge variant="demo">Demo Simulation</Badge>
+            {project.result?.isDemoSimulation && (
+              <Badge variant="demo">Demo Simulation</Badge>
+            )}
           </div>
         </div>
 
@@ -126,14 +129,17 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
               borderColor: 'var(--border)',
             }}
           >
-            <img
-              src={
-                project.targetFace?.previewUrl ||
-                'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&auto=format&fit=crop&q=80'
-              }
-              alt={project.targetFace?.name}
-              className="w-12 h-12 rounded-xl object-cover border border-[#D6AD65]"
-            />
+            {project.targetFace?.previewUrl ? (
+              <img
+                src={project.targetFace.previewUrl}
+                alt={project.targetFace?.name || 'Target Face'}
+                className="w-12 h-12 rounded-xl object-cover border border-[#D6AD65]"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center border border-[#D6AD65]/30 bg-black/40 text-[#D6AD65]">
+                <Film className="w-6 h-6" />
+              </div>
+            )}
             <div>
               <span className="text-[10px] font-mono uppercase block" style={{ color: 'var(--text-muted)' }}>
                 Target Actor

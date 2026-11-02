@@ -73,6 +73,9 @@ checkpoints/
 models/*.pt
 models/*.onnx
 models/*.safetensors
+.assets/
+facefusion/.assets/
+.facefusion/
 
 # Media uploads and generated temp files
 uploads/
@@ -82,4 +85,5 @@ output/
 outputs/
 storage/
 backend/storage/
+facefusion/.temp/
 

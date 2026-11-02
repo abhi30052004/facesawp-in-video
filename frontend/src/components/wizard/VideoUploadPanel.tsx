@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Film, AlertCircle, Play, Pause, RotateCcw, Sparkles, Loader2 } from 'lucide-react';
+import { Upload, Film, AlertCircle, Play, Pause, RotateCcw, Loader2 } from 'lucide-react';
 import { VideoMetadata } from '../../types/project';
 import { extractVideoMetadata, validateVideoFile } from '../../utils/mediaValidation';
 import { formatBytes, formatDuration } from '../../utils/formatters';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
-import { DEMO_SAMPLE_VIDEOS } from '../../services/mockData';
 import { bollySwapApi } from '../../services/api';
 
 interface VideoUploadPanelProps {
@@ -299,55 +298,6 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
           </div>
         </div>
       )}
-
-      {/* Quick Demo Clip Presets Selector */}
-      <div className="pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-semibold text-[#D6AD65] uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" />
-            Quick Demo Clips
-          </span>
-          <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            Select pre-packaged footage to test immediately
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {DEMO_SAMPLE_VIDEOS.map((demo) => (
-            <div
-              key={demo.name}
-              onClick={() => onVideoSelected(demo)}
-              className="p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between hover:opacity-90"
-              style={{
-                backgroundColor: currentVideo?.name === demo.name ? 'rgba(214, 173, 101, 0.1)' : 'var(--bg-input)',
-                borderColor: currentVideo?.name === demo.name ? 'var(--gold)' : 'var(--border)',
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-[#D6AD65] border"
-                  style={{
-                    backgroundColor: 'var(--bg-card)',
-                    borderColor: 'var(--border)',
-                  }}
-                >
-                  <Film className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {demo.name.replace('.mp4', '')}
-                  </p>
-                  <p className="text-[11px] font-mono" style={{ color: 'var(--text-faint)' }}>
-                    {demo.width}x{demo.height} • {demo.durationSec}s
-                  </p>
-                </div>
-              </div>
-
-              <span className="text-xs font-semibold" style={{ color: 'var(--gold)' }}>Select</span>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 };

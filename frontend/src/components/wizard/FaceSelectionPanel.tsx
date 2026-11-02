@@ -15,7 +15,7 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
   selectedFace,
   onFaceSelected,
 }) => {
-  const [activeTab, setActiveTab] = useState<'roster' | 'upload'>('roster');
+  const [activeTab, setActiveTab] = useState<'roster' | 'upload'>('upload');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -85,43 +85,45 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
             Step 2: Target Actor Identity
           </h2>
           <p className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Select an actor preset or upload a custom target face.
+            Upload a target face photograph for high-fidelity neural reenactment.
           </p>
         </div>
 
-        {/* Tab switch */}
-        <div
-          className="flex p-1 rounded-xl self-start sm:self-auto border"
-          style={{
-            backgroundColor: 'var(--bg-input)',
-            borderColor: 'var(--border)',
-          }}
-        >
-          <button
-            onClick={() => setActiveTab('roster')}
-            className="px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+        {/* Tab switch if presets exist */}
+        {DEMO_ACTOR_PRESETS.length > 0 && (
+          <div
+            className="flex p-1 rounded-xl self-start sm:self-auto border"
             style={{
-              backgroundColor: activeTab === 'roster' ? 'var(--gold)' : 'transparent',
-              color: activeTab === 'roster' ? '#09090B' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'roster' ? 600 : 500,
+              backgroundColor: 'var(--bg-input)',
+              borderColor: 'var(--border)',
             }}
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            Actor Presets
-          </button>
-          <button
-            onClick={() => setActiveTab('upload')}
-            className="px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
-            style={{
-              backgroundColor: activeTab === 'upload' ? 'var(--gold)' : 'transparent',
-              color: activeTab === 'upload' ? '#09090B' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'upload' ? 600 : 500,
-            }}
-          >
-            <Upload className="w-3.5 h-3.5" />
-            Upload Custom Face
-          </button>
-        </div>
+            <button
+              onClick={() => setActiveTab('roster')}
+              className="px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+              style={{
+                backgroundColor: activeTab === 'roster' ? 'var(--gold)' : 'transparent',
+                color: activeTab === 'roster' ? '#09090B' : 'var(--text-secondary)',
+                fontWeight: activeTab === 'roster' ? 600 : 500,
+              }}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Actor Presets
+            </button>
+            <button
+              onClick={() => setActiveTab('upload')}
+              className="px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+              style={{
+                backgroundColor: activeTab === 'upload' ? 'var(--gold)' : 'transparent',
+                color: activeTab === 'upload' ? '#09090B' : 'var(--text-secondary)',
+                fontWeight: activeTab === 'upload' ? 600 : 500,
+              }}
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Upload Custom Face
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Selected Face confirmation pill if chosen */}
@@ -184,75 +186,93 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
           </div>
 
           {/* Roster Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredPresets.map((preset) => {
-              const isSelected = selectedFace?.id === preset.id;
-              return (
-                <div
-                  key={preset.id}
-                  onClick={() => handlePresetSelect(preset)}
-                  className="relative border rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 group hover:-translate-y-1"
-                  style={{
-                    backgroundColor: isSelected ? 'rgba(214, 173, 101, 0.12)' : 'var(--bg-input)',
-                    borderColor: isSelected ? 'var(--gold)' : 'var(--border)',
-                  }}
-                >
-                  {/* Actor image */}
-                  <div className="relative aspect-[4/3] overflow-hidden bg-black">
-                    <img
-                      src={preset.avatarUrl}
-                      alt={preset.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+          {filteredPresets.length === 0 ? (
+            <div
+              className="p-8 text-center border border-dashed rounded-2xl space-y-3"
+              style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-card)' }}
+            >
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                No actor presets available.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab('upload')}
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#D6AD65] text-[#09090B] hover:opacity-90 transition-opacity"
+              >
+                Upload Target Face
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredPresets.map((preset) => {
+                const isSelected = selectedFace?.id === preset.id;
+                return (
+                  <div
+                    key={preset.id}
+                    onClick={() => handlePresetSelect(preset)}
+                    className="relative border rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 group hover:-translate-y-1"
+                    style={{
+                      backgroundColor: isSelected ? 'rgba(214, 173, 101, 0.12)' : 'var(--bg-input)',
+                      borderColor: isSelected ? 'var(--gold)' : 'var(--border)',
+                    }}
+                  >
+                    {/* Actor image */}
+                    <div className="relative aspect-[4/3] overflow-hidden bg-black">
+                      <img
+                        src={preset.avatarUrl}
+                        alt={preset.name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
 
-                    {/* Demo badge overlay */}
-                    <div className="absolute top-3 left-3">
-                      <Badge variant="demo">Preset</Badge>
-                    </div>
-
-                    {/* Compatibility score */}
-                    <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-full border border-[#D6AD65]/30 text-[11px] font-mono text-[#D6AD65] flex items-center gap-1">
-                      <Star className="w-3 h-3 fill-[#D6AD65]" />
-                      {preset.suitabilityScore}% Match
-                    </div>
-
-                    {/* Selected check */}
-                    {isSelected && (
-                      <div className="absolute bottom-3 right-3 w-7 h-7 rounded-full bg-[#D6AD65] text-[#09090B] flex items-center justify-center font-bold shadow-lg">
-                        <Check className="w-4 h-4 stroke-[3]" />
+                      {/* Demo badge overlay */}
+                      <div className="absolute top-3 left-3">
+                        <Badge variant="demo">Preset</Badge>
                       </div>
-                    )}
-                  </div>
 
-                  {/* Actor info */}
-                  <div className="p-4">
-                    <div className="mb-1">
-                      <h4
-                        className="text-base font-cinematic font-bold group-hover:text-[#D6AD65] transition-colors"
-                        style={{ color: 'var(--text-primary)' }}
+                      {/* Compatibility score */}
+                      <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-full border border-[#D6AD65]/30 text-[11px] font-mono text-[#D6AD65] flex items-center gap-1">
+                        <Star className="w-3 h-3 fill-[#D6AD65]" />
+                        {preset.suitabilityScore}% Match
+                      </div>
+
+                      {/* Selected check */}
+                      {isSelected && (
+                        <div className="absolute bottom-3 right-3 w-7 h-7 rounded-full bg-[#D6AD65] text-[#09090B] flex items-center justify-center font-bold shadow-lg">
+                          <Check className="w-4 h-4 stroke-[3]" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actor info */}
+                    <div className="p-4">
+                      <div className="mb-1">
+                        <h4
+                          className="text-base font-cinematic font-bold group-hover:text-[#D6AD65] transition-colors"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          {preset.name}
+                        </h4>
+                        <p className="text-xs text-[#D6AD65] font-medium">{preset.title}</p>
+                      </div>
+
+                      <p className="text-xs line-clamp-2 mb-3" style={{ color: 'var(--text-faint)' }}>
+                        {preset.description}
+                      </p>
+
+                      <div
+                        className="pt-2.5 border-t flex items-center justify-between text-[11px]"
+                        style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
                       >
-                        {preset.name}
-                      </h4>
-                      <p className="text-xs text-[#D6AD65] font-medium">{preset.title}</p>
-                    </div>
-
-                    <p className="text-xs line-clamp-2 mb-3" style={{ color: 'var(--text-faint)' }}>
-                      {preset.description}
-                    </p>
-
-                    <div
-                      className="pt-2.5 border-t flex items-center justify-between text-[11px]"
-                      style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
-                    >
-                      <span className="font-mono">{preset.era}</span>
-                      <span className="text-[#D6AD65] group-hover:underline font-semibold">Select Actor →</span>
+                        <span className="font-mono">{preset.era}</span>
+                        <span className="text-[#D6AD65] group-hover:underline font-semibold">Select Actor →</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

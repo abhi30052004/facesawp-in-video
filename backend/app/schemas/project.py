@@ -42,8 +42,8 @@ class JobResponseData(BaseModel):
     progress: float = Field(default=0.0)
     current_stage: str = Field(default="Asset Ingestion Complete", alias="currentStage")
     error_message: Optional[str] = Field(default=None, alias="errorMessage")
-    created_at: str = Field(alias="createdAt")
-    updated_at: str = Field(alias="updatedAt")
+    created_at: Optional[str] = Field(default=None, alias="createdAt")
+    updated_at: Optional[str] = Field(default=None, alias="updatedAt")
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -55,8 +55,8 @@ class ProjectCreateRequest(BaseModel):
     """Payload to create a new BollySwap project."""
     project_id: Optional[str] = Field(default=None, alias="projectId", description="Associated Project ID")
     title: str = Field(default="Cinematic Project", description="Project name")
-    original_video_id: str = Field(alias="originalVideoId", description="Upload ID of the source video")
-    replacement_face_id: str = Field(alias="replacementFaceId", description="Upload ID or preset ID of the target face")
+    original_video_id: Optional[str] = Field(default=None, alias="originalVideoId", description="Upload ID of the source video")
+    replacement_face_id: Optional[str] = Field(default=None, alias="replacementFaceId", description="Upload ID or preset ID of the target face")
     user_id: Optional[str] = Field(default=None, alias="userId")
     consent_confirmed: bool = Field(default=True, alias="consentConfirmed")
 
@@ -71,8 +71,8 @@ class ProjectResponseData(BaseModel):
     project_id: str = Field(alias="projectId")
     user_id: Optional[str] = Field(default=None, alias="userId")
     title: str
-    original_video_id: str = Field(alias="originalVideoId")
-    replacement_face_id: str = Field(alias="replacementFaceId")
+    original_video_id: Optional[str] = Field(default=None, alias="originalVideoId")
+    replacement_face_id: Optional[str] = Field(default=None, alias="replacementFaceId")
     status: str
     created_at: str = Field(alias="createdAt")
     updated_at: str = Field(alias="updatedAt")

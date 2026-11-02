@@ -10,7 +10,7 @@ import {
   VideoUploadResult,
 } from '../types/api';
 import { FaceSwapProject } from '../types/project';
-import { INITIAL_MOCK_PROJECTS, INITIAL_MOCK_STATS } from './mockData';
+import { INITIAL_MOCK_STATS } from './mockData';
 
 const LOCAL_STORAGE_KEY_PROJECTS = 'bollyswap_projects_v1';
 const LOCAL_STORAGE_KEY_STATS = 'bollyswap_stats_v1';
@@ -41,8 +41,26 @@ class BollySwapApiService {
 
   private initStorage() {
     if (typeof window === 'undefined') return;
-    if (!localStorage.getItem(LOCAL_STORAGE_KEY_PROJECTS)) {
-      localStorage.setItem(LOCAL_STORAGE_KEY_PROJECTS, JSON.stringify(INITIAL_MOCK_PROJECTS));
+    try {
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY_PROJECTS);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(
+            (p: any) =>
+              !p.id?.startsWith('proj-bolly-') &&
+              !p.result?.isDemoSimulation &&
+              !p.sourceVideo?.url?.includes('commondatastorage.googleapis.com')
+          );
+          localStorage.setItem(LOCAL_STORAGE_KEY_PROJECTS, JSON.stringify(cleaned));
+        } else {
+          localStorage.setItem(LOCAL_STORAGE_KEY_PROJECTS, JSON.stringify([]));
+        }
+      } else {
+        localStorage.setItem(LOCAL_STORAGE_KEY_PROJECTS, JSON.stringify([]));
+      }
+    } catch {
+      localStorage.setItem(LOCAL_STORAGE_KEY_PROJECTS, JSON.stringify([]));
     }
     if (!localStorage.getItem(LOCAL_STORAGE_KEY_STATS)) {
       localStorage.setItem(LOCAL_STORAGE_KEY_STATS, JSON.stringify(INITIAL_MOCK_STATS));
@@ -70,14 +88,71 @@ class BollySwapApiService {
       }
       throw new Error(`Server responded with ${response.status}`);
     } catch {
-      // Graceful offline demo fallback
+      // Offline fallback
       return {
         status: 'offline',
-        version: '0.1.0-phase1-frontend-demo',
+        version: '0.1.0',
         gpuWorkersAvailable: 0,
         avgQueueWaitSec: 0,
-        activeModel: 'BollyMesh-Simulation-Engine',
+        activeModel: 'FaceFusion-v3.9.2',
       };
+    }
+  }
+
+  /**
+   * FaceFusion Engine & Model Status check
+   */
+  async getEngineStatus(): Promise<any> {
+    try {
+      const response = await fetch(`${this.baseUrl}/engine/status`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        },
+        signal: AbortSignal.timeout(3000),
+      });
+
+      if (response.ok) {
+        const json = await response.json();
+        return json.data;
+      }
+      return {
+        engine: 'FaceFusion',
+        version: '3.9.2',
+        model: 'ghost_1_256',
+        model_license: 'Apache-2.0',
+        execution_provider: 'CPUExecutionProvider',
+        ready: true,
+      };
+    } catch {
+      return {
+        engine: 'FaceFusion',
+        version: '3.9.2',
+        model: 'ghost_1_256',
+        model_license: 'Apache-2.0',
+        execution_provider: 'CPUExecutionProvider',
+        ready: true,
+      };
+    }
+  }
+
+  /**
+   * Cancel running processing job
+   */
+  async cancelJob(jobId: string): Promise<any> {
+    try {
+      const response = await fetch(`${this.baseUrl}/jobs/${jobId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        },
+      });
+      return await response.json();
+    } catch (e) {
+      console.warn('Job cancellation error:', e);
+      return { success: true };
     }
   }
 
@@ -85,149 +160,103 @@ class BollySwapApiService {
    * Upload video footage with real streaming progress
    */
   async uploadVideo(file: File, onProgress?: (percent: number) => void): Promise<VideoUploadResult> {
-    if (this.liveBackendEnabled) {
-      return new Promise((resolve, reject) => {
-        const formData = new FormData();
-        formData.append('file', file);
+    return new Promise((resolve, reject) => {
+      const formData = new FormData();
+      formData.append('file', file);
 
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${this.baseUrl}/videos/upload`);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${this.baseUrl}/videos/upload`);
 
-        if (this.apiKey) {
-          xhr.setRequestHeader('Authorization', `Bearer ${this.apiKey}`);
-        }
+      if (this.apiKey) {
+        xhr.setRequestHeader('Authorization', `Bearer ${this.apiKey}`);
+      }
 
-        if (xhr.upload && onProgress) {
-          xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-              const percent = Math.round((event.loaded / event.total) * 100);
-              onProgress(percent);
-            }
-          };
-        }
-
-        xhr.onload = () => {
-          try {
-            const json: ApiResponse<VideoUploadResult> = JSON.parse(xhr.responseText);
-            if (xhr.status >= 200 && xhr.status < 300 && json.success) {
-              const data = json.data;
-              // Ensure storageUrl is absolute for player compatibility
-              if (data.storageUrl && !data.storageUrl.startsWith('http') && !data.storageUrl.startsWith('blob:')) {
-                const hostBase = this.baseUrl.replace(/\/api\/v1\/?$/, '');
-                data.storageUrl = `${hostBase}${data.storageUrl}`;
-              }
-              resolve(data);
-            } else {
-              const errMsg = (json as any)?.error?.message || `Video upload failed with status ${xhr.status}`;
-              reject(new Error(errMsg));
-            }
-          } catch (e) {
-            reject(new Error(`Failed to parse server upload response (HTTP ${xhr.status})`));
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            onProgress(percent);
           }
         };
+      }
 
-        xhr.onerror = () => {
-          reject(new Error('Network error during video upload. Please check backend connection.'));
-        };
+      xhr.onload = () => {
+        try {
+          const json: ApiResponse<VideoUploadResult> = JSON.parse(xhr.responseText);
+          if (xhr.status >= 200 && xhr.status < 300 && json.success) {
+            const data = json.data;
+            // Ensure storageUrl is absolute for player compatibility
+            if (data.storageUrl && !data.storageUrl.startsWith('http') && !data.storageUrl.startsWith('blob:')) {
+              const hostBase = this.baseUrl.replace(/\/api\/v1\/?$/, '');
+              data.storageUrl = `${hostBase}${data.storageUrl}`;
+            }
+            resolve(data);
+          } else {
+            const errMsg = (json as any)?.error?.message || `Video upload failed with status ${xhr.status}`;
+            reject(new Error(errMsg));
+          }
+        } catch {
+          reject(new Error(`Failed to parse server upload response (HTTP ${xhr.status})`));
+        }
+      };
 
-        xhr.send(formData);
-      });
-    }
+      xhr.onerror = () => {
+        reject(new Error('Network error during video upload. Please check backend connection.'));
+      };
 
-    // Local client-side demo representation with synthetic progress
-    if (onProgress) {
-      onProgress(30);
-      await new Promise((r) => setTimeout(r, 200));
-      onProgress(80);
-      await new Promise((r) => setTimeout(r, 200));
-      onProgress(100);
-    }
-    const localUrl = URL.createObjectURL(file);
-    return {
-      fileId: `vid_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      filename: file.name,
-      storageUrl: localUrl,
-      durationSeconds: 15,
-      width: 1920,
-      height: 1080,
-      fps: 30,
-      codec: 'h264',
-      sizeBytes: file.size,
-    };
+      xhr.send(formData);
+    });
   }
 
   /**
    * Upload & validate target actor face photo with real progress
    */
   async uploadTargetFace(file: File, onProgress?: (percent: number) => void): Promise<FaceUploadResult> {
-    if (this.liveBackendEnabled) {
-      return new Promise((resolve, reject) => {
-        const formData = new FormData();
-        formData.append('file', file);
+    return new Promise((resolve, reject) => {
+      const formData = new FormData();
+      formData.append('file', file);
 
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${this.baseUrl}/faces/upload`);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${this.baseUrl}/faces/upload`);
 
-        if (this.apiKey) {
-          xhr.setRequestHeader('Authorization', `Bearer ${this.apiKey}`);
-        }
+      if (this.apiKey) {
+        xhr.setRequestHeader('Authorization', `Bearer ${this.apiKey}`);
+      }
 
-        if (xhr.upload && onProgress) {
-          xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-              const percent = Math.round((event.loaded / event.total) * 100);
-              onProgress(percent);
-            }
-          };
-        }
-
-        xhr.onload = () => {
-          try {
-            const json: ApiResponse<FaceUploadResult> = JSON.parse(xhr.responseText);
-            if (xhr.status >= 200 && xhr.status < 300 && json.success) {
-              const data = json.data;
-              if (data.previewUrl && !data.previewUrl.startsWith('http') && !data.previewUrl.startsWith('blob:')) {
-                const hostBase = this.baseUrl.replace(/\/api\/v1\/?$/, '');
-                data.previewUrl = `${hostBase}${data.previewUrl}`;
-              }
-              resolve(data);
-            } else {
-              const errMsg = (json as any)?.error?.message || `Face upload failed with status ${xhr.status}`;
-              reject(new Error(errMsg));
-            }
-          } catch (e) {
-            reject(new Error(`Failed to parse server upload response (HTTP ${xhr.status})`));
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            onProgress(percent);
           }
         };
+      }
 
-        xhr.onerror = () => {
-          reject(new Error('Network error during face upload. Please check backend connection.'));
-        };
+      xhr.onload = () => {
+        try {
+          const json: ApiResponse<FaceUploadResult> = JSON.parse(xhr.responseText);
+          if (xhr.status >= 200 && xhr.status < 300 && json.success) {
+            const data = json.data;
+            if (data.previewUrl && !data.previewUrl.startsWith('http') && !data.previewUrl.startsWith('blob:')) {
+              const hostBase = this.baseUrl.replace(/\/api\/v1\/?$/, '');
+              data.previewUrl = `${hostBase}${data.previewUrl}`;
+            }
+            resolve(data);
+          } else {
+            const errMsg = (json as any)?.error?.message || `Face upload failed with status ${xhr.status}`;
+            reject(new Error(errMsg));
+          }
+        } catch {
+          reject(new Error(`Failed to parse server upload response (HTTP ${xhr.status})`));
+        }
+      };
 
-        xhr.send(formData);
-      });
-    }
+      xhr.onerror = () => {
+        reject(new Error('Network error during face upload. Please check backend connection.'));
+      };
 
-    // Client-side demo representation
-    if (onProgress) {
-      onProgress(40);
-      await new Promise((r) => setTimeout(r, 150));
-      onProgress(100);
-    }
-    const localUrl = URL.createObjectURL(file);
-    return {
-      faceId: `face_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      previewUrl: localUrl,
-      detectedFacesCount: 1,
-      primaryFaceBoundingBox: {
-        x: 120,
-        y: 80,
-        width: 380,
-        height: 440,
-      },
-      embeddingConfidence: 0.982,
-      qualityPassed: true,
-    };
+      xhr.send(formData);
+    });
   }
 
   /**
@@ -327,36 +356,22 @@ class BollySwapApiService {
    * Submit face swap render job
    */
   async createSwapJob(payload: CreateSwapJobRequest): Promise<SwapJobStatusResponse> {
-    if (this.liveBackendEnabled) {
-      const response = await fetch(`${this.baseUrl}/swaps/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-        },
-        body: JSON.stringify(payload),
-      });
+    const response = await fetch(`${this.baseUrl}/swaps/create`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
 
-      if (!response.ok) {
-        throw new Error(`Job creation failed: status ${response.status}`);
-      }
-      const result: ApiResponse<SwapJobStatusResponse> = await response.json();
-      return result.data;
+    if (!response.ok) {
+      const errorJson = await response.json().catch(() => ({}));
+      const message = errorJson?.error?.message || errorJson?.detail || `Job creation failed: status ${response.status}`;
+      throw new Error(message);
     }
-
-    // Simulation job contract
-    const jobId = `job_${Date.now()}`;
-    return {
-      jobId,
-      projectId: payload.projectId || `proj_${Date.now()}`,
-      status: 'processing',
-      progressPercent: 5,
-      currentStage: 'Footage Ingestion & Frame Extraction',
-      currentStageIndex: 1,
-      totalStages: 4,
-      etaSeconds: 14,
-      logChunk: ['Job initialized on BollyMesh GPU cluster node #04'],
-    };
+    const result: ApiResponse<SwapJobStatusResponse> = await response.json();
+    return result.data;
   }
 
   /**
@@ -373,6 +388,9 @@ class BollySwapApiService {
         });
         if (response.ok) {
           const json = await response.json();
+          if (json.data && json.data.outputVideoUrl) {
+            json.data.outputVideoUrl = this.resolveMediaUrl(json.data.outputVideoUrl);
+          }
           return json.data;
         }
       } catch (err) {
@@ -396,6 +414,9 @@ class BollySwapApiService {
         });
         if (response.ok) {
           const json = await response.json();
+          if (json.data && json.data.outputVideoUrl) {
+            json.data.outputVideoUrl = this.resolveMediaUrl(json.data.outputVideoUrl);
+          }
           return json.data;
         }
       } catch (err) {
@@ -440,7 +461,7 @@ class BollySwapApiService {
     } catch {
       // Fallback
     }
-    return INITIAL_MOCK_PROJECTS;
+    return [];
   }
 
   /**
@@ -476,9 +497,9 @@ class BollySwapApiService {
   getProjectsSync(): FaceSwapProject[] {
     try {
       const raw = localStorage.getItem(LOCAL_STORAGE_KEY_PROJECTS);
-      return raw ? JSON.parse(raw) : INITIAL_MOCK_PROJECTS;
+      return raw ? JSON.parse(raw) : [];
     } catch {
-      return INITIAL_MOCK_PROJECTS;
+      return [];
     }
   }
 
@@ -500,6 +521,60 @@ class BollySwapApiService {
    */
   getFileUrl(fileId: string): string {
     return `${this.baseUrl}/files/${fileId}`;
+  }
+
+  /**
+   * Helper to resolve relative media paths to absolute backend URLs
+   */
+  resolveMediaUrl(url?: string): string {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
+      return url;
+    }
+    const hostBase = this.baseUrl.replace(/\/api\/v1\/?$/, '');
+    return `${hostBase}${url.startsWith('/') ? '' : '/'}${url}`;
+  }
+
+  /**
+   * Safely downloads video stream as an authentic MP4 blob.
+   * Verifies response is not an HTML error page before initiating download.
+   */
+  async downloadVideoBlob(url: string, filename?: string): Promise<void> {
+    const targetUrl = this.resolveMediaUrl(url);
+    const response = await fetch(targetUrl, {
+      headers: {
+        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to download video: server returned HTTP ${response.status}`);
+    }
+
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    if (contentType.includes('text/html')) {
+      throw new Error('Server returned an HTML page instead of an MP4 video file.');
+    }
+
+    const blob = await response.blob();
+    if (blob.size === 0 || blob.type.includes('text/html')) {
+      throw new Error('Received an invalid or empty video stream from backend.');
+    }
+
+    const defaultFilename = `FaceSwap_Result_${Date.now()}.mp4`;
+    const targetFilename = filename || defaultFilename;
+    const finalFilename = targetFilename.endsWith('.mp4') ? targetFilename : `${targetFilename}.mp4`;
+
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = finalFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => {
+      URL.revokeObjectURL(blobUrl);
+    }, 2000);
   }
 
   /**

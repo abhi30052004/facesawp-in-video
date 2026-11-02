@@ -63,7 +63,7 @@ export interface ProcessingState {
     label: string;
     value: string;
   };
-  isDemoSimulated: true;
+  isDemoSimulated?: boolean;
 }
 
 export interface RenderResult {
@@ -76,7 +76,7 @@ export interface RenderResult {
   framesProcessed: number;
   fps: number;
   modelIdentifier: string;
-  isDemoSimulation: true;
+  isDemoSimulation?: boolean;
   watermarked: boolean;
   checksum: string;
 }

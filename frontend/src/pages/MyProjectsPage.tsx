@@ -117,15 +117,21 @@ export const MyProjectsPage: React.FC = () => {
               style={{ borderColor: 'var(--border)' }}
             >
               <div className="flex items-center gap-4 min-w-0">
-                <img
-                  src={
-                    project.targetFace?.previewUrl ||
-                    'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&auto=format&fit=crop&q=80'
-                  }
-                  alt={project.title}
-                  className="w-16 h-10 rounded-lg object-cover shrink-0 border"
-                  style={{ borderColor: 'var(--border)' }}
-                />
+                {project.result?.thumbnailUrl || project.targetFace?.previewUrl ? (
+                  <img
+                    src={project.result?.thumbnailUrl || project.targetFace?.previewUrl}
+                    alt={project.title}
+                    className="w-16 h-10 rounded-lg object-cover shrink-0 border"
+                    style={{ borderColor: 'var(--border)' }}
+                  />
+                ) : (
+                  <div
+                    className="w-16 h-10 rounded-lg shrink-0 border flex items-center justify-center bg-zinc-900 text-[#D6AD65]/40"
+                    style={{ borderColor: 'var(--border)' }}
+                  >
+                    <Film className="w-5 h-5" />
+                  </div>
+                )}
                 <div className="min-w-0">
                   <h4
                     className="text-sm font-cinematic font-bold group-hover:text-[#D6AD65] transition-colors truncate"

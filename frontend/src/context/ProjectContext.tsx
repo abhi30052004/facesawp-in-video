@@ -7,7 +7,7 @@ import { INITIAL_MOCK_STATS } from '../services/mockData';
 const WIZARD_DRAFT_STORAGE_KEY = 'bollyswap_wizard_draft_v4';
 
 interface WizardDraft {
-  step: 'video' | 'face' | 'consent' | 'processing' | 'results';
+  step: 'video' | 'face' | 'preview' | 'consent' | 'processing' | 'results';
   title: string;
   sourceVideo?: VideoMetadata;
   targetFace?: TargetFaceSelection;

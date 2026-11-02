@@ -9,6 +9,7 @@ class SwapJobCreateRequest(BaseModel):
     source_video_id: str = Field(alias="sourceVideoId", description="Uploaded source video file ID")
     replacement_face_id: str = Field(alias="replacementFaceId", description="Target actor replacement image ID")
     selected_actor_track_id: str = Field(default="actor_1", alias="selectedActorTrackId", description="Candidate actor track to replace")
+    fast_mode: Optional[bool] = Field(default=False, alias="fastMode", description="Enable fast-preview mode for rapid CPU inference")
 
     @model_validator(mode="before")
     @classmethod
@@ -52,6 +53,7 @@ class SwapJobData(BaseModel):
     completed_at: Optional[str] = Field(default=None, alias="completedAt")
     output_video_id: Optional[str] = Field(default=None, alias="outputVideoId")
     output_video_url: Optional[str] = Field(default=None, alias="outputVideoUrl")
+    metadata: Optional[Dict[str, Any]] = Field(default=None)
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -71,6 +73,7 @@ class SwapResultData(BaseModel):
     status: str
     output_video_id: Optional[str] = Field(default=None, alias="outputVideoId")
     output_video_url: Optional[str] = Field(default=None, alias="outputVideoUrl")
+    metadata: Optional[Dict[str, Any]] = Field(default=None)
     duration_seconds: Optional[float] = Field(default=None, alias="durationSeconds")
     frames_processed: int = Field(default=0, alias="framesProcessed")
     fps: Optional[float] = None

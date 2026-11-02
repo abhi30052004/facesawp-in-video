@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     FACE_ALIGN_SIZE: int = 256
     FACE_SWAP_MODEL_NAME: str = "unconfigured"
     FFMPEG_PATH: Optional[str] = None
+    FFPROBE_PATH: Optional[str] = None
+    FACEFUSION_DIR: Optional[str] = None
+    FACEFUSION_MODEL_DIR: Optional[str] = None
+    PUBLIC_BACKEND_URL: Optional[str] = None
+    API_ACCESS_KEY: Optional[str] = None
+    MAX_ACTIVE_SWAP_JOBS: int = 2
 
     # AI Face Swap Engine Configuration (Phase 5B & Phase 6 - ONNX Runtime CPU)
     FACE_SWAP_ENABLED: bool = True
@@ -81,7 +87,7 @@ class Settings(BaseSettings):
     FACE_SWAP_INPUT_SIZE: int = 128
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "backend/.env", str(Path(__file__).resolve().parent.parent.parent / ".env")),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
@@ -178,17 +184,67 @@ class Settings(BaseSettings):
 
     @property
     def resolved_ffmpeg_path(self) -> str:
-        """Finds FFmpeg binary via configuration, imageio_ffmpeg, or PATH."""
+        """Finds FFmpeg binary via configuration, PATH, WinGet, or imageio_ffmpeg."""
         import shutil
+        import os
+        import glob
         if self.FFMPEG_PATH and Path(self.FFMPEG_PATH).exists():
             return self.FFMPEG_PATH
+        found = shutil.which("ffmpeg")
+        if found:
+            return found
+        # Check standard WinGet installation dynamically using LOCALAPPDATA
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data:
+            pattern = os.path.join(local_app_data, "Microsoft", "WinGet", "Packages", "*Gyan.FFmpeg*", "**", "ffmpeg.exe")
+            matches = glob.glob(pattern, recursive=True)
+            if matches and Path(matches[0]).exists():
+                return matches[0]
         try:
             import imageio_ffmpeg
             return imageio_ffmpeg.get_ffmpeg_exe()
         except Exception:
             pass
-        found = shutil.which("ffmpeg")
-        return found or "ffmpeg"
+        return "ffmpeg"
+
+    @property
+    def resolved_ffprobe_path(self) -> str:
+        """Finds FFprobe binary via configuration, PATH, or WinGet."""
+        import shutil
+        import os
+        import glob
+        if self.FFPROBE_PATH and Path(self.FFPROBE_PATH).exists():
+            return self.FFPROBE_PATH
+        found = shutil.which("ffprobe")
+        if found:
+            return found
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data:
+            pattern = os.path.join(local_app_data, "Microsoft", "WinGet", "Packages", "*Gyan.FFmpeg*", "**", "ffprobe.exe")
+            matches = glob.glob(pattern, recursive=True)
+            if matches and Path(matches[0]).exists():
+                return matches[0]
+        return "ffprobe"
+
+    @property
+    def resolved_facefusion_dir(self) -> Path:
+        """Resolves absolute directory of FaceFusion engine."""
+        if self.FACEFUSION_DIR:
+            p = Path(self.FACEFUSION_DIR)
+            if p.exists():
+                return p.resolve()
+        # Fallback to sibling facefusion folder in repo root
+        repo_root = Path(__file__).resolve().parent.parent.parent.parent
+        return repo_root / "facefusion"
+
+    @property
+    def resolved_model_dir(self) -> Path:
+        """Resolves directory where FaceFusion models are cached."""
+        if self.FACEFUSION_MODEL_DIR:
+            p = Path(self.FACEFUSION_MODEL_DIR)
+            if p.exists():
+                return p.resolve()
+        return self.resolved_facefusion_dir / ".assets" / "models"
 
 
 @lru_cache()
