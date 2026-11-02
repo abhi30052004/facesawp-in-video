@@ -8,9 +8,6 @@ import {
   Sparkles,
   Clock,
   Activity,
-  AlertTriangle,
-  FileCode,
-  ArrowRight,
 } from 'lucide-react';
 import { DEMO_PIPELINE_STAGES } from '../../services/mockData';
 import { TargetFaceSelection, VideoMetadata } from '../../types/project';

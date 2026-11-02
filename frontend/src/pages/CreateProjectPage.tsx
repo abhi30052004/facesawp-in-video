@@ -105,14 +105,16 @@ export const CreateProjectPage: React.FC = () => {
       status: 'completed',
       sourceVideo,
       targetFace,
+      configuration: config,
+      consentGranted: true,
       result: {
         outputVideoUrl:
           outputVideoUrl ||
           sourceVideo?.url ||
           'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-        thumbnailUrl:
-          targetFace?.previewUrl ||
-          'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&auto=format&fit=crop&q=80',
+        originalVideoUrl: sourceVideo?.url || '',
+        swappedFacePreviewUrl: targetFace?.previewUrl || '',
+        thumbnailUrl: targetFace?.previewUrl || '',
         resolution: `${config.resolutionTarget.toUpperCase()}`,
         renderDurationSec: 14.2,
         framesProcessed: 450,

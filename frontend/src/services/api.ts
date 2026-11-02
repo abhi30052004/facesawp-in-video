@@ -399,8 +399,12 @@ class BollySwapApiService {
         },
       });
       if (response.ok) {
-        const json: ApiResponse<FaceSwapProject[]> = await response.json();
-        return json.data;
+        const json: ApiResponse<any[]> = await response.json();
+        return (json.data || []).map((p: any) => ({
+          ...p,
+          id: p.id || p.projectId,
+          projectId: p.projectId || p.id,
+        }));
       }
     }
 

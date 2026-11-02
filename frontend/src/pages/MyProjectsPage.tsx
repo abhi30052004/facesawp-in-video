@@ -91,9 +91,9 @@ export const MyProjectsPage: React.FC = () => {
       ) : viewMode === 'grid' ? (
         /* Grid View */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredProjects.map((project) => (
+          {filteredProjects.map((project, idx) => (
             <ProjectCard
-              key={project.id}
+              key={project.id || (project as any).projectId || `project_${idx}`}
               project={project}
               onSelect={setSelectedProject}
               onDelete={deleteProject}
@@ -109,9 +109,9 @@ export const MyProjectsPage: React.FC = () => {
             borderColor: 'var(--border-card)',
           }}
         >
-          {filteredProjects.map((project) => (
+          {filteredProjects.map((project, idx) => (
             <div
-              key={project.id}
+              key={project.id || (project as any).projectId || `project_${idx}`}
               onClick={() => setSelectedProject(project)}
               className="p-4 flex items-center justify-between gap-4 transition-colors cursor-pointer group hover:opacity-90"
               style={{ borderColor: 'var(--border)' }}

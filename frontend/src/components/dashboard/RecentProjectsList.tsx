@@ -55,9 +55,9 @@ export const RecentProjectsList: React.FC<RecentProjectsListProps> = ({ projects
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {recent.map((proj) => (
+          {recent.map((proj, idx) => (
             <Card
-              key={proj.id}
+              key={proj.id || (proj as any).projectId || `proj_${idx}`}
               hoverEffect
               onClick={() => navigate('/projects')}
               className="p-4 cursor-pointer group flex flex-col justify-between"

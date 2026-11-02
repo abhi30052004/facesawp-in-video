@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Sparkles,
   UserCheck,
   Clock,
   CheckCircle2,
@@ -8,13 +7,10 @@ import {
   RotateCcw,
   Loader2,
   Scan,
-  ShieldCheck,
-  Video,
 } from 'lucide-react';
 import { DetectedActorTrack, VideoMetadata } from '../../types/project';
 import { bollySwapApi } from '../../services/api';
 import { Button } from '../common/Button';
-import { Badge } from '../common/Badge';
 
 interface ActorTrackSelectionPanelProps {
   projectId: string;

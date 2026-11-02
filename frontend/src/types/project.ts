@@ -70,6 +70,7 @@ export interface RenderResult {
   outputVideoUrl: string;
   originalVideoUrl: string;
   swappedFacePreviewUrl: string;
+  thumbnailUrl?: string;
   resolution: string;
   renderDurationSec: number;
   framesProcessed: number;
@@ -108,6 +109,7 @@ export interface DetectedActorTrack {
 
 export interface FaceSwapProject {
   id: string;
+  projectId?: string;
   title: string;
   description?: string;
   status: ProjectStatus;
