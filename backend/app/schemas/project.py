@@ -53,6 +53,7 @@ class JobResponseData(BaseModel):
 
 class ProjectCreateRequest(BaseModel):
     """Payload to create a new BollySwap project."""
+    project_id: Optional[str] = Field(default=None, alias="projectId", description="Associated Project ID")
     title: str = Field(default="Cinematic Project", description="Project name")
     original_video_id: str = Field(alias="originalVideoId", description="Upload ID of the source video")
     replacement_face_id: str = Field(alias="replacementFaceId", description="Upload ID or preset ID of the target face")

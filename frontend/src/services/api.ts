@@ -267,6 +267,7 @@ class BollySwapApiService {
    * Create Project in MongoDB
    */
   async createProject(payload: {
+    projectId?: string;
     title: string;
     originalVideoId: string;
     replacementFaceId: string;
@@ -281,6 +282,7 @@ class BollySwapApiService {
           ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
         },
         body: JSON.stringify({
+          projectId: payload.projectId || undefined,
           title: payload.title,
           originalVideoId: payload.originalVideoId,
           replacementFaceId: payload.replacementFaceId,

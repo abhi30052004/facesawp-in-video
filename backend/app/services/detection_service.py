@@ -1,4 +1,5 @@
 import logging
+import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,7 +14,7 @@ from app.schemas.detection import (
     VideoMetadataDetail,
 )
 from app.services.database import DatabaseService, get_database_service
-from app.services.face_detector import FaceDetectorYuNet
+from app.services.face_detector import FaceDetectorYuNet, get_shared_yunet_detector
 from app.services.face_tracker import FaceTracker
 from app.services.project_service import current_iso_timestamp
 from app.services.storage_service import (
@@ -54,7 +55,7 @@ class DetectionService:
     def _get_detector(self) -> FaceDetectorYuNet:
         """Lazy initializer for YuNet detector to support test mocking if needed."""
         if self.face_detector is None:
-            self.face_detector = FaceDetectorYuNet(
+            self.face_detector = get_shared_yunet_detector(
                 model_path=self.settings.resolved_yunet_model_path,
                 confidence_threshold=self.settings.FACE_DETECTION_CONFIDENCE_THRESHOLD,
                 nms_threshold=self.settings.FACE_DETECTION_NMS_THRESHOLD,
@@ -242,7 +243,7 @@ class DetectionService:
                 {"$set": result_data.model_dump(by_alias=True)},
             )
 
-            # Update project in MongoDB with detected tracks and default track selection
+            # Update or upsert project in MongoDB with detected tracks and default track selection
             await projects_col.update_one(
                 {"project_id": project_id},
                 {
@@ -252,8 +253,16 @@ class DetectionService:
                         "detection_job_id": detection_job_id,
                         "status": "awaiting_face_selection" if final_tracks else "no_faces_detected",
                         "updated_at": completed_time,
-                    }
+                    },
+                    "$setOnInsert": {
+                        "project_id": project_id,
+                        "title": "Cinematic Project",
+                        "original_video_id": video_id,
+                        "replacement_face_id": "",
+                        "created_at": completed_time,
+                    },
                 },
+                upsert=True,
             )
 
             logger.info(
@@ -322,28 +331,88 @@ class DetectionService:
         Affirms which detected actor track in the video the user wants to replace.
         Validates that the track ID belongs to the project's detection results.
         """
+        logger.info(
+            "Attempting actor track selection for project '%s' with track ID '%s'",
+            project_id,
+            selected_track_id,
+        )
         if not self.db_service.is_connected:
             raise RuntimeError("Database service is offline.")
 
         projects_col = self.db_service.get_collection("projects")
-        project_doc = await projects_col.find_one({"project_id": project_id})
-        if not project_doc:
-            raise ValueError(f"Project with ID '{project_id}' not found.")
+        jobs_col = self.db_service.get_collection("detection_jobs")
 
         # Find detection results for this project
-        jobs_col = self.db_service.get_collection("detection_jobs")
         detection_doc = await jobs_col.find_one({"project_id": project_id}, sort=[("created_at", -1)])
+        project_doc = await projects_col.find_one({"project_id": project_id})
+
+        if not project_doc:
+            if detection_doc:
+                logger.info("Project record '%s' not yet inserted; auto-initializing from detection job", project_id)
+                now = current_iso_timestamp()
+                project_doc = {
+                    "project_id": project_id,
+                    "title": "Cinematic Project",
+                    "original_video_id": detection_doc.get("video_id", ""),
+                    "replacement_face_id": "",
+                    "detected_tracks": detection_doc.get("tracks", []),
+                    "selected_actor_track_id": None,
+                    "detection_job_id": detection_doc.get("detection_job_id"),
+                    "status": "awaiting_face_selection",
+                    "created_at": now,
+                    "updated_at": now,
+                }
+                await projects_col.insert_one(project_doc)
+            else:
+                logger.error("Project '%s' not found and no face detection job found for it.", project_id)
+                raise ValueError(
+                    f"Project with ID '{project_id}' not found. Please ensure face detection has completed first."
+                )
+
+        candidate_tracks = []
+        if detection_doc and "tracks" in detection_doc:
+            candidate_tracks = detection_doc["tracks"]
+        elif project_doc and "detected_tracks" in project_doc:
+            candidate_tracks = project_doc["detected_tracks"]
+
+        available_track_ids = [
+            t.get("track_id") or t.get("trackId")
+            for t in candidate_tracks
+            if (t.get("track_id") or t.get("trackId"))
+        ]
+        thumbnail_ids = [
+            t.get("thumbnail_file_id") or t.get("thumbnailFileId")
+            for t in candidate_tracks
+            if (t.get("thumbnail_file_id") or t.get("thumbnailFileId"))
+        ]
+
+        if selected_track_id in thumbnail_ids:
+            logger.warning(
+                "Selected ID '%s' is a thumbnail file ID, not a valid actor track ID. Available tracks: %s",
+                selected_track_id,
+                available_track_ids,
+            )
+            raise ValueError(
+                f"Provided ID '{selected_track_id}' is a thumbnail file ID, not a valid actor track ID. "
+                f"Please select one of the valid actor tracks: {available_track_ids}"
+            )
 
         matched_track: Optional[FaceTrackItem] = None
-        if detection_doc and "tracks" in detection_doc:
-            for t in detection_doc["tracks"]:
-                if t.get("track_id") == selected_track_id or t.get("trackId") == selected_track_id:
-                    matched_track = FaceTrackItem(**t)
-                    break
+        for t in candidate_tracks:
+            if t.get("track_id") == selected_track_id or t.get("trackId") == selected_track_id:
+                matched_track = FaceTrackItem(**t)
+                break
 
         if matched_track is None:
+            logger.warning(
+                "Track ID '%s' does not belong to project '%s'. Available track IDs: %s",
+                selected_track_id,
+                project_id,
+                available_track_ids,
+            )
             raise ValueError(
-                f"Track ID '{selected_track_id}' does not belong to project '{project_id}'."
+                f"Track ID '{selected_track_id}' does not belong to project '{project_id}'. "
+                f"Available track IDs: {available_track_ids}"
             )
 
         now = current_iso_timestamp()
@@ -364,7 +433,7 @@ class DetectionService:
                 {"$set": {"selected_track_id": selected_track_id}},
             )
 
-        logger.info("Selected actor track '%s' for project %s", selected_track_id, project_id)
+        logger.info("Successfully selected actor track '%s' for project %s", selected_track_id, project_id)
         return TrackSelectionResultData(
             projectId=project_id,
             selectedTrackId=selected_track_id,
@@ -373,10 +442,33 @@ class DetectionService:
         )
 
 
+_detection_service_instance: Optional[DetectionService] = None
+_detection_service_lock = threading.Lock()
+
+
 def get_detection_service() -> DetectionService:
-    """FastAPI dependency provider for DetectionService."""
-    settings = get_settings()
-    db = get_database_service()
-    storage = get_storage_service()
-    return DetectionService(settings=settings, db_service=db, storage_service=storage)
+    """FastAPI dependency provider for DetectionService singleton."""
+    global _detection_service_instance
+    if _detection_service_instance is not None:
+        return _detection_service_instance
+
+    with _detection_service_lock:
+        if _detection_service_instance is not None:
+            return _detection_service_instance
+
+        settings = get_settings()
+        db = get_database_service()
+        storage = get_storage_service()
+        _detection_service_instance = DetectionService(
+            settings=settings, db_service=db, storage_service=storage
+        )
+        return _detection_service_instance
+
+
+def reset_detection_service() -> None:
+    """Resets detection service singleton for testing."""
+    global _detection_service_instance
+    with _detection_service_lock:
+        _detection_service_instance = None
+
 

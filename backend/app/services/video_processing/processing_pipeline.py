@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -70,13 +71,13 @@ class VideoProcessingPipeline:
         self.audio_handler = audio_handler or AudioHandler(ffmpeg_path=settings.resolved_ffmpeg_path)
         self.video_writer = video_writer or VideoWriter(watermark_text=settings.SWAP_WATERMARK_TEXT)
 
-        # Lazy YuNet face detector initialization
+        # Lazy YuNet face detector initialization via shared thread-safe singleton
         self.face_detector = face_detector
         if self.face_detector is None:
             try:
-                from app.services.face_detector import FaceDetectorYuNet
+                from app.services.face_detector import get_shared_yunet_detector
                 if settings.resolved_yunet_model_path.exists():
-                    self.face_detector = FaceDetectorYuNet(
+                    self.face_detector = get_shared_yunet_detector(
                         model_path=settings.resolved_yunet_model_path,
                         confidence_threshold=settings.FACE_DETECTION_CONFIDENCE_THRESHOLD,
                         nms_threshold=settings.FACE_DETECTION_NMS_THRESHOLD,
@@ -526,9 +527,32 @@ class VideoProcessingPipeline:
         )
 
 
+_pipeline_instance: Optional[VideoProcessingPipeline] = None
+_pipeline_lock = threading.Lock()
+
+
 def get_video_processing_pipeline() -> VideoProcessingPipeline:
-    """FastAPI dependency provider for VideoProcessingPipeline."""
-    settings = get_settings()
-    db = get_database_service()
-    storage = get_storage_service()
-    return VideoProcessingPipeline(settings=settings, db_service=db, storage_service=storage)
+    """FastAPI dependency provider for VideoProcessingPipeline singleton."""
+    global _pipeline_instance
+    if _pipeline_instance is not None:
+        return _pipeline_instance
+
+    with _pipeline_lock:
+        if _pipeline_instance is not None:
+            return _pipeline_instance
+
+        settings = get_settings()
+        db = get_database_service()
+        storage = get_storage_service()
+        _pipeline_instance = VideoProcessingPipeline(
+            settings=settings, db_service=db, storage_service=storage
+        )
+        return _pipeline_instance
+
+
+def reset_video_processing_pipeline() -> None:
+    """Resets pipeline singleton for testing."""
+    global _pipeline_instance
+    with _pipeline_lock:
+        _pipeline_instance = None
+

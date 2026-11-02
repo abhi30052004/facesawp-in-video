@@ -71,7 +71,12 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
     if (!activeJob?.jobId) return;
 
     let isMounted = true;
-    const pollInterval = setInterval(async () => {
+    let inFlight = false;
+    const terminalStatuses = ['completed', 'failed', 'cancelled', 'model_not_configured'];
+
+    const poll = async () => {
+      if (!isMounted || inFlight) return;
+      inFlight = true;
       try {
         const liveJob = await bollySwapApi.getSwapJob(activeJob.jobId);
         if (!liveJob || !isMounted) return;
@@ -81,8 +86,12 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
           setCurrentStepMessage(liveJob.currentStep);
         }
 
-        if (liveJob.progress) {
+        if (typeof liveJob.progress === 'number') {
           setProgress(Math.round(liveJob.progress * 100));
+        }
+
+        if (terminalStatuses.includes(liveJob.status)) {
+          clearInterval(pollInterval);
         }
 
         if (liveJob.status === 'model_not_configured') {
@@ -92,7 +101,6 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
             `[ENGINE STATUS] ${liveJob.currentStep}`,
             '[NOTICE] Neural inference unconfigured. Pipeline assets and tracking verified.',
           ]);
-          clearInterval(pollInterval);
         } else if (liveJob.status === 'completed') {
           setProgress(100);
           setLogs((prev) => [
@@ -100,21 +108,25 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
             '[COMPLETED] Master neural face replacement rendered successfully.',
             `[OUTPUT] Video artifact generated: ${liveJob.outputVideoUrl}`,
           ]);
-          clearInterval(pollInterval);
           setTimeout(() => {
-            onProcessingComplete(liveJob.outputVideoUrl);
+            if (isMounted) onProcessingComplete(liveJob.outputVideoUrl);
           }, 1000);
         } else if (liveJob.status === 'failed') {
           setLogs((prev) => [
             ...prev,
             `[ERROR] Pipeline failed: ${liveJob.errorMessage || 'Unknown error'}`,
           ]);
-          clearInterval(pollInterval);
         }
       } catch (err) {
         // Polling error fallback
+      } finally {
+        inFlight = false;
       }
-    }, 1200);
+    };
+
+    // Check immediately, then poll every 2.5s (2500ms)
+    poll();
+    const pollInterval = setInterval(poll, 2500);
 
     return () => {
       isMounted = false;

@@ -1,4 +1,5 @@
 import logging
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -211,4 +212,47 @@ class FaceDetectorYuNet:
             len(sampled_frames),
         )
         return all_detections
+
+
+_shared_yunet_detector: Optional[FaceDetectorYuNet] = None
+_detector_lock = threading.Lock()
+
+
+def get_shared_yunet_detector(
+    model_path: Optional[Path] = None,
+    confidence_threshold: float = 0.6,
+    nms_threshold: float = 0.3,
+    top_k: int = 5000,
+) -> FaceDetectorYuNet:
+    """
+    Thread-safe lazy-loaded singleton for FaceDetectorYuNet.
+    Guarantees the ONNX model graph is loaded only once per process.
+    """
+    global _shared_yunet_detector
+    if _shared_yunet_detector is not None:
+        return _shared_yunet_detector
+
+    with _detector_lock:
+        if _shared_yunet_detector is not None:
+            return _shared_yunet_detector
+
+        if model_path is None:
+            from app.core.config import get_settings
+            model_path = get_settings().resolved_yunet_model_path
+
+        _shared_yunet_detector = FaceDetectorYuNet(
+            model_path=Path(model_path),
+            confidence_threshold=confidence_threshold,
+            nms_threshold=nms_threshold,
+            top_k=top_k,
+        )
+        return _shared_yunet_detector
+
+
+def reset_shared_yunet_detector() -> None:
+    """Releases the shared YuNet detector instance (for cleanup or testing)."""
+    global _shared_yunet_detector
+    with _detector_lock:
+        _shared_yunet_detector = None
+
 
