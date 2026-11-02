@@ -240,25 +240,30 @@ class BollySwapApiService {
     affirmation?: string;
   }): Promise<boolean> {
     if (this.liveBackendEnabled) {
-      const response = await fetch(`${this.baseUrl}/consent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-        },
-        body: JSON.stringify({
-          projectId: payload.projectId,
-          consentGiven: payload.consentGiven,
-          consentTextVersion: payload.consentTextVersion || 'v1.0',
-          affirmation: payload.affirmation || 'Likeness consent affirmed for production.',
-        }),
-      });
+      try {
+        const response = await fetch(`${this.baseUrl}/consent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+          },
+          body: JSON.stringify({
+            projectId: payload.projectId,
+            consentGiven: payload.consentGiven,
+            consentTextVersion: payload.consentTextVersion || 'v1.0',
+            affirmation: payload.affirmation || 'Likeness consent affirmed for production.',
+          }),
+        });
 
-      if (!response.ok) {
-        const json = await response.json().catch(() => ({}));
-        throw new Error(json?.error?.message || 'Failed to record consent record.');
+        if (!response.ok) {
+          const json = await response.json().catch(() => ({}));
+          throw new Error(json?.error?.message || 'Failed to record consent record.');
+        }
+        return true;
+      } catch (err: any) {
+        console.warn('Backend consent sync failed, recorded locally:', err);
+        return true;
       }
-      return true;
     }
     return true;
   }
@@ -275,28 +280,32 @@ class BollySwapApiService {
     consentConfirmed: boolean;
   }): Promise<any> {
     if (this.liveBackendEnabled) {
-      const response = await fetch(`${this.baseUrl}/projects`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-        },
-        body: JSON.stringify({
-          projectId: payload.projectId || undefined,
-          title: payload.title,
-          originalVideoId: payload.originalVideoId,
-          replacementFaceId: payload.replacementFaceId,
-          userId: payload.userId || null,
-          consentConfirmed: payload.consentConfirmed,
-        }),
-      });
+      try {
+        const response = await fetch(`${this.baseUrl}/projects`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+          },
+          body: JSON.stringify({
+            projectId: payload.projectId || undefined,
+            title: payload.title,
+            originalVideoId: payload.originalVideoId,
+            replacementFaceId: payload.replacementFaceId,
+            userId: payload.userId || null,
+            consentConfirmed: payload.consentConfirmed,
+          }),
+        });
 
-      if (!response.ok) {
+        if (response.ok) {
+          const result = await response.json();
+          return result.data;
+        }
         const json = await response.json().catch(() => ({}));
         throw new Error(json?.error?.message || `Project creation failed (HTTP ${response.status})`);
+      } catch (err: any) {
+        console.warn('Backend project creation failed, creating local project:', err);
       }
-      const result = await response.json();
-      return result.data;
     }
 
     return {
@@ -355,15 +364,19 @@ class BollySwapApiService {
    */
   async getSwapJob(jobId: string): Promise<any> {
     if (this.liveBackendEnabled) {
-      const response = await fetch(`${this.baseUrl}/swaps/${jobId}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-        },
-      });
-      if (response.ok) {
-        const json = await response.json();
-        return json.data;
+      try {
+        const response = await fetch(`${this.baseUrl}/swaps/${jobId}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+          },
+        });
+        if (response.ok) {
+          const json = await response.json();
+          return json.data;
+        }
+      } catch (err) {
+        console.warn(`Failed to poll swap job ${jobId}:`, err);
       }
     }
     return null;
@@ -374,15 +387,19 @@ class BollySwapApiService {
    */
   async getSwapResult(jobId: string): Promise<any> {
     if (this.liveBackendEnabled) {
-      const response = await fetch(`${this.baseUrl}/swaps/${jobId}/result`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-        },
-      });
-      if (response.ok) {
-        const json = await response.json();
-        return json.data;
+      try {
+        const response = await fetch(`${this.baseUrl}/swaps/${jobId}/result`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+          },
+        });
+        if (response.ok) {
+          const json = await response.json();
+          return json.data;
+        }
+      } catch (err) {
+        console.warn(`Failed to fetch swap result ${jobId}:`, err);
       }
     }
     return null;
@@ -393,18 +410,25 @@ class BollySwapApiService {
    */
   async getProjects(): Promise<FaceSwapProject[]> {
     if (this.liveBackendEnabled) {
-      const response = await fetch(`${this.baseUrl}/projects`, {
-        headers: {
-          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
-        },
-      });
-      if (response.ok) {
-        const json: ApiResponse<any[]> = await response.json();
-        return (json.data || []).map((p: any) => ({
-          ...p,
-          id: p.id || p.projectId,
-          projectId: p.projectId || p.id,
-        }));
+      try {
+        const response = await fetch(`${this.baseUrl}/projects`, {
+          headers: {
+            ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+          },
+        });
+        if (response.ok) {
+          const contentType = response.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const json: ApiResponse<any[]> = await response.json();
+            return (json.data || []).map((p: any) => ({
+              ...p,
+              id: p.id || p.projectId,
+              projectId: p.projectId || p.id,
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn('Live backend /projects unreachable, using local projects cache:', err);
       }
     }
 

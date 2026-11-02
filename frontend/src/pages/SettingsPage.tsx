@@ -4,21 +4,35 @@ import {
   Sliders,
   Check,
   Save,
+  Server,
+  Activity,
+  RotateCcw,
 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
+import { Badge } from '../components/common/Badge';
 
 export const SettingsPage: React.FC = () => {
   const {
     settings,
     updateProfile,
     updatePreferences,
+    updateApiConfig,
+    testBackendConnection,
+    resetToDefaultDemoData,
   } = useSettings();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'preferences'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'api'>('profile');
   const [profileForm, setProfileForm] = useState(settings.profile);
   const [prefsForm, setPrefsForm] = useState(settings.preferences);
+  const [apiForm, setApiForm] = useState({
+    backendUrl: settings.apiConfig.backendUrl,
+    apiKey: settings.apiConfig.apiKey,
+    useLiveBackend: settings.apiConfig.useLiveBackend,
+  });
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const triggerSuccessBanner = () => {
@@ -36,6 +50,34 @@ export const SettingsPage: React.FC = () => {
     e.preventDefault();
     updatePreferences(prefsForm);
     triggerSuccessBanner();
+  };
+
+  const handleSaveApiConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateApiConfig({
+      backendUrl: apiForm.backendUrl.trim(),
+      apiKey: apiForm.apiKey.trim(),
+      useLiveBackend: apiForm.useLiveBackend,
+    });
+    triggerSuccessBanner();
+  };
+
+  const handleTestConnection = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      updateApiConfig({ backendUrl: apiForm.backendUrl.trim() });
+      const ok = await testBackendConnection();
+      if (ok) {
+        setTestResult('Successfully connected to BollySwap backend!');
+      } else {
+        setTestResult('Backend unreachable. Running in offline/demo mode.');
+      }
+    } catch {
+      setTestResult('Connection failed. Please check the URL and CORS settings.');
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   return (
@@ -86,6 +128,18 @@ export const SettingsPage: React.FC = () => {
         >
           <Sliders className="w-4 h-4" />
           Preferences
+        </button>
+
+        <button
+          onClick={() => setActiveTab('api')}
+          className="pb-3 font-medium transition-colors cursor-pointer flex items-center gap-2"
+          style={{
+            color: activeTab === 'api' ? 'var(--gold)' : 'var(--text-muted)',
+            borderBottom: activeTab === 'api' ? '2px solid var(--gold)' : '2px solid transparent',
+          }}
+        >
+          <Server className="w-4 h-4" />
+          API Connection
         </button>
       </div>
 
@@ -274,6 +328,123 @@ export const SettingsPage: React.FC = () => {
             <div className="pt-4 border-t flex justify-end" style={{ borderColor: 'var(--border)' }}>
               <Button type="submit" size="sm" variant="primary" leftIcon={<Save className="w-3.5 h-3.5" />}>
                 Save Preferences
+              </Button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      {/* Tab 3: API Connection */}
+      {activeTab === 'api' && (
+        <Card className="p-6">
+          <form onSubmit={handleSaveApiConfig} className="space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+              <div>
+                <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Backend Integration
+                </h3>
+                <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
+                  Connect your frontend to local FastAPI or deployed cloud microservices
+                </p>
+              </div>
+              <Badge variant={settings.apiConfig.useLiveBackend ? 'emerald' : 'gold'}>
+                {settings.apiConfig.useLiveBackend ? 'Live Backend Active' : 'Offline / Demo Mode'}
+              </Badge>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="font-mono block" style={{ color: 'var(--text-secondary)' }}>
+                  Backend API Base URL
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={apiForm.backendUrl}
+                    onChange={(e) => setApiForm({ ...apiForm, backendUrl: e.target.value })}
+                    placeholder="https://your-backend.onrender.com/api/v1 or http://127.0.0.1:8000/api/v1"
+                    className="flex-1 rounded-xl px-3.5 py-2 font-mono text-xs focus:outline-none transition-colors border"
+                    style={{
+                      backgroundColor: 'var(--bg-input)',
+                      borderColor: 'var(--border)',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    isLoading={isTesting}
+                    leftIcon={<Activity className="w-3.5 h-3.5" />}
+                    onClick={handleTestConnection}
+                  >
+                    Test Ping
+                  </Button>
+                </div>
+                <p className="text-[11px]" style={{ color: 'var(--text-faint)' }}>
+                  For local development use <code>http://127.0.0.1:8000/api/v1</code>. For production, specify your deployed HTTPS backend URL.
+                </p>
+              </div>
+
+              {testResult && (
+                <div
+                  className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${
+                    testResult.includes('Successfully')
+                      ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400'
+                      : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
+                  }`}
+                >
+                  <Activity className="w-4 h-4 shrink-0" />
+                  <span>{testResult}</span>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="font-mono block" style={{ color: 'var(--text-secondary)' }}>
+                  API Key (Optional)
+                </label>
+                <input
+                  type="password"
+                  value={apiForm.apiKey}
+                  onChange={(e) => setApiForm({ ...apiForm, apiKey: e.target.value })}
+                  placeholder="Bearer token if authentication is enabled"
+                  className="w-full rounded-xl px-3.5 py-2 font-mono text-xs focus:outline-none transition-colors border"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+
+              <div className="pt-2 space-y-2">
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs">
+                  <input
+                    type="checkbox"
+                    checked={apiForm.useLiveBackend}
+                    onChange={(e) => setApiForm({ ...apiForm, useLiveBackend: e.target.checked })}
+                    className="rounded text-[#D6AD65]"
+                  />
+                  <span style={{ color: 'var(--text-primary)' }}>
+                    Enable live backend API calls (uncheck for pure offline demo playground)
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
+                onClick={resetToDefaultDemoData}
+              >
+                Reset Studio Data
+              </Button>
+
+              <Button type="submit" size="sm" variant="primary" leftIcon={<Save className="w-3.5 h-3.5" />}>
+                Save API Settings
               </Button>
             </div>
           </form>

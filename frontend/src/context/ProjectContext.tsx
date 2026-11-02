@@ -87,6 +87,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const currentStats = await bollySwapApi.getStudioUsageStats();
       setProjects(list);
       setStats(currentStats);
+    } catch (err) {
+      console.warn('Failed to refresh projects from live backend:', err);
     } finally {
       setIsLoading(false);
     }

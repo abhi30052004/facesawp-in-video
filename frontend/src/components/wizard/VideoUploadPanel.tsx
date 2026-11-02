@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Film, AlertCircle, Play, Pause, RotateCcw, Sparkles, Loader2 } from 'lucide-react';
 import { VideoMetadata } from '../../types/project';
 import { extractVideoMetadata, validateVideoFile } from '../../utils/mediaValidation';
@@ -84,14 +84,33 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
     }
   };
 
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        try {
+          videoRef.current.pause();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, []);
+
   const togglePlayback = () => {
     if (!videoRef.current) return;
     if (isPlaying) {
       videoRef.current.pause();
       setIsPlaying(false);
     } else {
-      videoRef.current.play();
       setIsPlaying(true);
+      videoRef.current.play().catch((err: unknown) => {
+        // Suppress expected AbortError when component unmounts or browser pauses background media
+        const isAbort = (err as any)?.name === 'AbortError';
+        if (!isAbort) {
+          console.warn('Video playback interrupted:', err);
+        }
+        setIsPlaying(false);
+      });
     }
   };
 
@@ -216,6 +235,7 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
               src={currentVideo.url}
               className="w-full h-full object-contain"
               onEnded={() => setIsPlaying(false)}
+              playsInline
             />
 
             {/* Play/Pause Overlay Button */}

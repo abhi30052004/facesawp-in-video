@@ -92,6 +92,13 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.middleware("http")
+    async def add_cors_pna_header(request: Request, call_next):
+        response = await call_next(request)
+        if request.headers.get("access-control-request-private-network") == "true":
+            response.headers["Access-Control-Allow-Private-Network"] = "true"
+        return response
+
     # ---------------------------------------------------------
     # Exception Handlers
     # ---------------------------------------------------------

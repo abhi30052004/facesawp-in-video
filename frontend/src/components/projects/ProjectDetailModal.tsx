@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Play,
   Pause,
@@ -30,14 +30,32 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
 
   if (!project) return null;
 
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        try {
+          videoRef.current.pause();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, [isOpen]);
+
   const togglePlay = () => {
     if (!videoRef.current) return;
     if (isPlaying) {
       videoRef.current.pause();
       setIsPlaying(false);
     } else {
-      videoRef.current.play();
       setIsPlaying(true);
+      videoRef.current.play().catch((err: unknown) => {
+        const isAbort = (err as any)?.name === 'AbortError';
+        if (!isAbort) {
+          console.warn('Video playback interrupted:', err);
+        }
+        setIsPlaying(false);
+      });
     }
   };
 
@@ -79,6 +97,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
             src={videoUrl}
             className="w-full h-full object-contain"
             onEnded={() => setIsPlaying(false)}
+            playsInline
           />
 
           {/* Big Play Button Overlay */}

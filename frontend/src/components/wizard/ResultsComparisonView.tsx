@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Play,
   Pause,
@@ -47,15 +47,36 @@ export const ResultsComparisonView: React.FC<ResultsComparisonViewProps> = ({
     'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
   const swappedVideoUrl = outputVideoUrl || videoUrl;
 
+  useEffect(() => {
+    return () => {
+      try {
+        originalVideoRef.current?.pause();
+        swappedVideoRef.current?.pause();
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
   const togglePlay = () => {
     if (isPlaying) {
       originalVideoRef.current?.pause();
       swappedVideoRef.current?.pause();
       setIsPlaying(false);
     } else {
-      originalVideoRef.current?.play();
-      swappedVideoRef.current?.play();
       setIsPlaying(true);
+      const safePlay = (el: HTMLVideoElement | null) => {
+        if (!el) return;
+        el.play().catch((err: unknown) => {
+          const isAbort = (err as any)?.name === 'AbortError';
+          if (!isAbort) {
+            console.warn('Playback interrupted:', err);
+          }
+          setIsPlaying(false);
+        });
+      };
+      safePlay(originalVideoRef.current);
+      safePlay(swappedVideoRef.current);
     }
   };
 
