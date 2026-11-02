@@ -33,7 +33,6 @@ export const HowItWorksGuide: React.FC = () => {
       accent: 'border-[#D6AD65]/30 text-[#D6AD65]',
     },
   ];
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
