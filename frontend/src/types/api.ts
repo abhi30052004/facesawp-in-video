@@ -53,6 +53,7 @@ export interface CreateSwapJobRequest {
   targetFaceType: 'preset' | 'upload';
   config: FaceSwapConfiguration;
   consentConfirmed: boolean;
+  selectedActorTrackId?: string;
 }
 
 export interface SwapJobStatusResponse {

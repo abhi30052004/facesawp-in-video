@@ -43,9 +43,11 @@ class DatabaseService:
             self.client = AsyncMongoClient(
                 uri,
                 serverSelectionTimeoutMS=5000,
-                connectTimeoutMS=5000,
+                connectTimeoutMS=10000,
+                socketTimeoutMS=20000,
                 maxPoolSize=50,
                 minPoolSize=5,
+                maxIdleTimeMS=60000,
             )
             # Verify connectivity
             await self.client.admin.command("ping")
@@ -120,11 +122,15 @@ class DatabaseService:
         """Closes MongoDB connection pool gracefully."""
         if self.client is not None:
             logger.info("Closing MongoDB Atlas connection pool...")
-            await self.client.close()
-            self.client = None
-            self.db = None
-            self._connected = False
-            self._status_message = "Disconnected."
+            try:
+                await self.client.close()
+            except Exception as e:
+                logger.debug("MongoDB client close completed with: %s", e)
+            finally:
+                self.client = None
+                self.db = None
+                self._connected = False
+                self._status_message = "Disconnected."
 
     async def ping(self) -> bool:
         """Performs a quick heartbeat ping to verify active connection."""

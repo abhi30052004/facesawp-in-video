@@ -71,7 +71,12 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
     if (!activeJob?.jobId) return;
 
     let isMounted = true;
-    const pollInterval = setInterval(async () => {
+    let inFlight = false;
+    const terminalStatuses = ['completed', 'failed', 'cancelled', 'model_not_configured'];
+
+    const poll = async () => {
+      if (!isMounted || inFlight) return;
+      inFlight = true;
       try {
         const liveJob = await bollySwapApi.getSwapJob(activeJob.jobId);
         if (!liveJob || !isMounted) return;
@@ -81,8 +86,12 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
           setCurrentStepMessage(liveJob.currentStep);
         }
 
-        if (liveJob.progress) {
+        if (typeof liveJob.progress === 'number') {
           setProgress(Math.round(liveJob.progress * 100));
+        }
+
+        if (terminalStatuses.includes(liveJob.status)) {
+          clearInterval(pollInterval);
         }
 
         if (liveJob.status === 'model_not_configured') {
@@ -92,7 +101,6 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
             `[ENGINE STATUS] ${liveJob.currentStep}`,
             '[NOTICE] Neural inference unconfigured. Pipeline assets and tracking verified.',
           ]);
-          clearInterval(pollInterval);
         } else if (liveJob.status === 'completed') {
           setProgress(100);
           setLogs((prev) => [
@@ -110,12 +118,16 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
             ...prev,
             `[FAILED] ${liveJob.errorMessage || 'Processing job terminated.'}`,
           ]);
-          clearInterval(pollInterval);
         }
       } catch (err) {
         console.warn('Job polling request error:', err);
+      } finally {
+        inFlight = false;
       }
-    }, 1500);
+    };
+
+    poll();
+    const pollInterval = setInterval(poll, 2000);
 
     return () => {
       isMounted = false;

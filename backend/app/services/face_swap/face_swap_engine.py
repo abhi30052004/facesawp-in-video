@@ -182,3 +182,4 @@ class FaceSwapEngine:
         """Unloads sessions from memory."""
         self.loader.unload()
         self._bundle = None
+

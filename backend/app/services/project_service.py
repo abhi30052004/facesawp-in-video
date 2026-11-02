@@ -120,20 +120,35 @@ class ProjectService:
         job_id = f"job_{uuid.uuid4().hex[:12]}"
         now = current_iso_timestamp()
 
-        # 1. Insert Project
+        # 1. Insert or update existing project (preserving detected_tracks/selected_actor_track_id)
         projects_col = self.db_service.get_collection("projects")
-        project_doc = {
-            "project_id": proj_id,
-            "user_id": user_id,
-            "title": title.strip() or "Untitled Cinematic Project",
-            "original_video_id": original_video_id,
-            "replacement_face_id": replacement_face_id,
-            "status": initial_job_status,
-            "created_at": now,
-            "updated_at": now,
-        }
-        await projects_col.insert_one(project_doc)
-        project_doc.pop("_id", None)
+        existing_project = await projects_col.find_one({"project_id": proj_id})
+        if existing_project:
+            update_fields = {
+                "user_id": user_id or existing_project.get("user_id"),
+                "title": title.strip() or existing_project.get("title", "Untitled Cinematic Project"),
+                "original_video_id": original_video_id or existing_project.get("original_video_id"),
+                "replacement_face_id": replacement_face_id or existing_project.get("replacement_face_id"),
+                "status": initial_job_status,
+                "updated_at": now,
+            }
+            await projects_col.update_one({"project_id": proj_id}, {"$set": update_fields})
+            existing_project.update(update_fields)
+            existing_project.pop("_id", None)
+            project_doc = existing_project
+        else:
+            project_doc = {
+                "project_id": proj_id,
+                "user_id": user_id,
+                "title": title.strip() or "Untitled Cinematic Project",
+                "original_video_id": original_video_id,
+                "replacement_face_id": replacement_face_id,
+                "status": initial_job_status,
+                "created_at": now,
+                "updated_at": now,
+            }
+            await projects_col.insert_one(project_doc)
+            project_doc.pop("_id", None)
 
         # 2. Insert Processing Job
         jobs_col = self.db_service.get_collection("processing_jobs")

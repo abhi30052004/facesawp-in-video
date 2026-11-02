@@ -126,3 +126,4 @@ class FaceBlender:
 
         composite = (alpha * warped_face.astype(np.float32)) + ((1.0 - alpha) * frame_bgr.astype(np.float32))
         return np.clip(composite, 0, 255).astype(np.uint8)
+

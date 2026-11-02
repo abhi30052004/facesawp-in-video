@@ -1,5 +1,6 @@
 import abc
 import logging
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import cv2
@@ -518,34 +519,61 @@ class LicensedFaceSwapModelAdapter(BaseFaceSwapModelAdapter):
         self._is_available = False
 
 
+_cached_adapter_instance: Optional[BaseFaceSwapModelAdapter] = None
+_adapter_lock = threading.Lock()
+
+
 def get_face_swap_model_adapter() -> BaseFaceSwapModelAdapter:
     """
-    Dependency provider returning the active model adapter.
-    If FACE_SWAP_ENABLED is True and a valid licensed model exists,
-    returns an initialized LicensedFaceSwapModelAdapter.
-    Otherwise returns UnconfiguredFaceSwapModelAdapter.
+    Dependency provider returning the active model adapter singleton.
+    Thread-safe lazy initialization ensures ONNX Runtime weights and ArcFace
+    models are parsed only once per process, eliminating repeated multi-hundred MB loads.
     """
-    try:
-        from app.core.config import get_settings
-        settings = get_settings()
-        if settings.FACE_SWAP_ENABLED and settings.resolved_face_swap_model_path:
-            model_path = settings.resolved_face_swap_model_path
-            arcface_path = settings.resolved_arcface_model_path
-            if model_path.exists():
-                adapter = LicensedFaceSwapModelAdapter(
-                    model_path=model_path,
-                    arcface_path=arcface_path,
-                    license_name=settings.FACE_SWAP_MODEL_LICENSE,
-                    provider=settings.FACE_SWAP_PROVIDER,
-                    input_size=settings.FACE_SWAP_INPUT_SIZE,
-                )
-                if adapter.initialize():
-                    return adapter
-                logger.warning(
-                    "LicensedFaceSwapModelAdapter initialization failed for %s; falling back to UnconfiguredFaceSwapModelAdapter.",
-                    model_path,
-                )
-    except Exception as e:
-        logger.warning("Could not instantiate LicensedFaceSwapModelAdapter: %s", e)
+    global _cached_adapter_instance
+    if _cached_adapter_instance is not None:
+        return _cached_adapter_instance
 
-    return UnconfiguredFaceSwapModelAdapter()
+    with _adapter_lock:
+        if _cached_adapter_instance is not None:
+            return _cached_adapter_instance
+
+        try:
+            from app.core.config import get_settings
+            settings = get_settings()
+            if settings.FACE_SWAP_ENABLED and settings.resolved_face_swap_model_path:
+                model_path = settings.resolved_face_swap_model_path
+                arcface_path = settings.resolved_arcface_model_path
+                if model_path.exists():
+                    adapter = LicensedFaceSwapModelAdapter(
+                        model_path=model_path,
+                        arcface_path=arcface_path,
+                        license_name=settings.FACE_SWAP_MODEL_LICENSE,
+                        provider=settings.FACE_SWAP_PROVIDER,
+                        input_size=settings.FACE_SWAP_INPUT_SIZE,
+                    )
+                    if adapter.initialize():
+                        _cached_adapter_instance = adapter
+                        logger.info("Face swap model adapter singleton initialized and cached.")
+                        return adapter
+                    logger.warning(
+                        "LicensedFaceSwapModelAdapter initialization failed for %s; falling back to UnconfiguredFaceSwapModelAdapter.",
+                        model_path,
+                    )
+        except Exception as e:
+            logger.warning("Could not instantiate LicensedFaceSwapModelAdapter: %s", e)
+
+        _cached_adapter_instance = UnconfiguredFaceSwapModelAdapter()
+        return _cached_adapter_instance
+
+
+def reset_face_swap_model_adapter() -> None:
+    """Releases active model adapter and cleans up inference sessions."""
+    global _cached_adapter_instance
+    with _adapter_lock:
+        if _cached_adapter_instance is not None:
+            try:
+                _cached_adapter_instance.cleanup()
+            except Exception:
+                pass
+            _cached_adapter_instance = None
+

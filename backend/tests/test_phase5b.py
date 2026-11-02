@@ -105,13 +105,23 @@ class MockMongoDBCollection:
                 return doc.copy()
         return None
 
-    async def update_one(self, query, update):
+    async def update_one(self, query, update, upsert=False, **kwargs):
         doc = await self.find_one(query)
         if doc and "$set" in update:
             doc.update(update["$set"])
             key = doc.get("project_id") or doc.get("job_id") or doc.get("upload_id") or doc.get("consent_id")
             self._docs[key] = doc
-        return doc
+            return doc
+        if upsert:
+            new_doc = dict(query)
+            if "$setOnInsert" in update:
+                new_doc.update(update["$setOnInsert"])
+            if "$set" in update:
+                new_doc.update(update["$set"])
+            key = new_doc.get("project_id") or new_doc.get("job_id") or new_doc.get("upload_id") or f"doc_{len(self._docs)}"
+            self._docs[key] = new_doc
+            return new_doc
+        return None
 
 
 class MockDatabaseService(DatabaseService):

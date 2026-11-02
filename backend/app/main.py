@@ -44,6 +44,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Shutdown
     logger.info("Shutting down %s", settings.APP_NAME)
     await database_service.disconnect()
+    try:
+        from app.services.video_processing.model_adapter import reset_face_swap_model_adapter
+        from app.services.face_detector import reset_shared_yunet_detector
+        from app.services.video_processing.processing_pipeline import reset_video_processing_pipeline
+        from app.services.detection_service import reset_detection_service
+        reset_face_swap_model_adapter()
+        reset_shared_yunet_detector()
+        reset_video_processing_pipeline()
+        reset_detection_service()
+    except Exception as cleanup_err:
+        logger.warning("Model resource cleanup warning: %s", cleanup_err)
 
 
 def create_app() -> FastAPI:

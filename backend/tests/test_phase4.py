@@ -36,7 +36,7 @@ class InMemoryAsyncCollection:
         res.inserted_id = stored["_id"]
         return res
 
-    async def update_one(self, query, update):
+    async def update_one(self, query, update, upsert=False, **kwargs):
         for doc in self.docs:
             match = all(doc.get(k) == v for k, v in query.items())
             if match:
@@ -45,6 +45,17 @@ class InMemoryAsyncCollection:
                 res = MagicMock()
                 res.modified_count = 1
                 return res
+        if upsert:
+            new_doc = dict(query)
+            if "$setOnInsert" in update:
+                new_doc.update(update["$setOnInsert"])
+            if "$set" in update:
+                new_doc.update(update["$set"])
+            new_doc["_id"] = f"mock_{len(self.docs)}"
+            self.docs.append(new_doc)
+            res = MagicMock()
+            res.upserted_id = new_doc["_id"]
+            return res
         res = MagicMock()
         res.modified_count = 0
         return res

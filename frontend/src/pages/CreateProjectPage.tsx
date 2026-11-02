@@ -60,6 +60,7 @@ export const CreateProjectPage: React.FC = () => {
 
     try {
       const proj = await bollySwapApi.createProject({
+        projectId: activeProjectId,
         title: projectTitle,
         originalVideoId: sourceVideo?.uploadId || 'vid_sample_source',
         replacementFaceId: targetFace?.id || 'face_sample_target',
@@ -75,6 +76,7 @@ export const CreateProjectPage: React.FC = () => {
           targetFaceType: 'upload',
           config,
           consentConfirmed: true,
+          selectedActorTrackId: selectedActorTrackId || 'track_1',
         });
         setBackendJobData(swapJob || proj?.activeJob || null);
       } catch {

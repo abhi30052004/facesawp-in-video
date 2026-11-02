@@ -183,11 +183,16 @@ async def test_real_video_pipeline_end_to_end(fixtures_dir):
             self.docs.append(dict(doc))
             return type("Result", (), {"inserted_id": "1"})()
 
-        async def update_one(self, filt, update):
+        async def update_one(self, filt, update, upsert=False, **kwargs):
             for d in self.docs:
                 if all(d.get(k) == v for k, v in filt.items()):
                     d.update(update.get("$set", {}))
                     return
+            if upsert:
+                new_doc = dict(filt)
+                new_doc.update(update.get("$setOnInsert", {}))
+                new_doc.update(update.get("$set", {}))
+                self.docs.append(new_doc)
 
         async def find_one(self, filt):
             for d in self.docs:

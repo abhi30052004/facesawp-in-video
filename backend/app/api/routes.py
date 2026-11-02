@@ -369,6 +369,7 @@ async def create_project(
         )
 
     doc = await project_service.create_project(
+        project_id=request.project_id,
         title=request.title,
         original_video_id=request.original_video_id,
         replacement_face_id=request.replacement_face_id,

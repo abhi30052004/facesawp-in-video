@@ -166,3 +166,4 @@ class FaceSwapModelLoader:
     def unload(self) -> None:
         """Releases session references and memory."""
         self._bundle = None
+
