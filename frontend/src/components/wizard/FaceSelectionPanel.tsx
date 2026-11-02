@@ -77,35 +77,46 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h2 className="text-xl font-cinematic font-bold text-white flex items-center gap-2">
+          <h2
+            className="text-xl font-cinematic font-bold flex items-center gap-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
             <UserCheck className="w-5 h-5 text-[#D6AD65]" />
             Step 2: Target Actor Identity
           </h2>
-          <p className="text-xs sm:text-sm text-[#A1A1AA]">
-            Select an iconic Bollywood archetype preset or upload a custom target face.
+          <p className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>
+            Select an actor preset or upload a custom target face.
           </p>
         </div>
 
         {/* Tab switch */}
-        <div className="flex p-1 bg-[#14141B] border border-[#272736] rounded-xl self-start sm:self-auto">
+        <div
+          className="flex p-1 rounded-xl self-start sm:self-auto border"
+          style={{
+            backgroundColor: 'var(--bg-input)',
+            borderColor: 'var(--border)',
+          }}
+        >
           <button
             onClick={() => setActiveTab('roster')}
-            className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'roster'
-                ? 'bg-gradient-to-r from-[#D6AD65] to-[#C09848] text-[#09090B] font-semibold shadow-sm'
-                : 'text-[#A1A1AA] hover:text-white'
-            }`}
+            className="px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+            style={{
+              backgroundColor: activeTab === 'roster' ? 'var(--gold)' : 'transparent',
+              color: activeTab === 'roster' ? '#09090B' : 'var(--text-secondary)',
+              fontWeight: activeTab === 'roster' ? 600 : 500,
+            }}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            Actor Roster (Demo)
+            Actor Presets
           </button>
           <button
             onClick={() => setActiveTab('upload')}
-            className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'upload'
-                ? 'bg-gradient-to-r from-[#D6AD65] to-[#C09848] text-[#09090B] font-semibold shadow-sm'
-                : 'text-[#A1A1AA] hover:text-white'
-            }`}
+            className="px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+            style={{
+              backgroundColor: activeTab === 'upload' ? 'var(--gold)' : 'transparent',
+              color: activeTab === 'upload' ? '#09090B' : 'var(--text-secondary)',
+              fontWeight: activeTab === 'upload' ? 600 : 500,
+            }}
           >
             <Upload className="w-3.5 h-3.5" />
             Upload Custom Face
@@ -113,30 +124,40 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
         </div>
       </div>
 
-      {/* Selected Face Active Banner */}
+      {/* Selected Face confirmation pill if chosen */}
       {selectedFace && (
-        <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#D6AD65]/10 via-[#1B1B24] to-[#8E3048]/10 border border-[#D6AD65]/30 flex items-center justify-between">
+        <div
+          className="p-3.5 rounded-xl border flex items-center justify-between gap-4 transition-colors"
+          style={{
+            backgroundColor: 'rgba(214, 173, 101, 0.1)',
+            borderColor: 'var(--gold)',
+          }}
+        >
           <div className="flex items-center gap-3">
             <img
               src={selectedFace.previewUrl}
               alt={selectedFace.name}
-              className="w-12 h-12 rounded-xl object-cover border border-[#D6AD65]"
+              className="w-10 h-10 rounded-lg object-cover border border-[#D6AD65]"
             />
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-white">{selectedFace.name}</span>
+                <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Selected Target: {selectedFace.name}
+                </span>
                 <Badge variant={selectedFace.isDemo ? 'demo' : 'emerald'}>
-                  {selectedFace.isDemo ? 'Demo Preset' : 'Custom Upload'}
+                  {selectedFace.isDemo ? 'Preset' : 'Custom Upload'}
                 </Badge>
               </div>
-              <p className="text-xs text-[#A1A1AA]">
-                Landmarks: 468 points mapped • Quality: {selectedFace.qualityRating}
-              </p>
+              <span className="text-[11px] font-mono text-[#D6AD65]">
+                Ready for alignment & neural reenactment
+              </span>
             </div>
           </div>
-          <span className="text-xs text-[#D6AD65] font-semibold hidden sm:inline-flex items-center gap-1">
-            <Check className="w-4 h-4" /> Ready for Alignment
-          </span>
+
+          <div className="flex items-center gap-1.5 text-xs text-emerald-500 font-medium">
+            <Check className="w-4 h-4" />
+            <span>Configured</span>
+          </div>
         </div>
       )}
 
@@ -149,11 +170,13 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
               <button
                 key={cat}
                 onClick={() => setCategoryFilter(cat)}
-                className={`px-3 py-1 text-xs rounded-lg border transition-all cursor-pointer ${
-                  categoryFilter === cat
-                    ? 'bg-[#2A2418] border-[#D6AD65] text-[#F4DE9C]'
-                    : 'bg-[#14141B] border-[#252532] text-[#8E8E9E] hover:border-[#38384A]'
-                }`}
+                className="px-3 py-1 text-xs rounded-lg border transition-all cursor-pointer"
+                style={{
+                  backgroundColor: categoryFilter === cat ? 'rgba(214, 173, 101, 0.15)' : 'var(--bg-input)',
+                  borderColor: categoryFilter === cat ? 'var(--gold)' : 'var(--border)',
+                  color: categoryFilter === cat ? 'var(--gold)' : 'var(--text-secondary)',
+                  fontWeight: categoryFilter === cat ? 600 : 500,
+                }}
               >
                 {cat}
               </button>
@@ -168,11 +191,11 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
                 <div
                   key={preset.id}
                   onClick={() => handlePresetSelect(preset)}
-                  className={`relative bg-[#16161D] border rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 group hover:-translate-y-1 ${
-                    isSelected
-                      ? 'border-[#D6AD65] shadow-[0_0_20px_rgba(214,173,101,0.2)] bg-[#1B1A22]'
-                      : 'border-[#272736] hover:border-[#3D3D52]'
-                  }`}
+                  className="relative border rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 group hover:-translate-y-1"
+                  style={{
+                    backgroundColor: isSelected ? 'rgba(214, 173, 101, 0.12)' : 'var(--bg-input)',
+                    borderColor: isSelected ? 'var(--gold)' : 'var(--border)',
+                  }}
                 >
                   {/* Actor image */}
                   <div className="relative aspect-[4/3] overflow-hidden bg-black">
@@ -181,11 +204,11 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
                       alt={preset.name}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#16161D] via-transparent to-black/30" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
 
                     {/* Demo badge overlay */}
                     <div className="absolute top-3 left-3">
-                      <Badge variant="demo">Demo Preset</Badge>
+                      <Badge variant="demo">Preset</Badge>
                     </div>
 
                     {/* Compatibility score */}
@@ -205,19 +228,25 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
                   {/* Actor info */}
                   <div className="p-4">
                     <div className="mb-1">
-                      <h4 className="text-base font-cinematic font-bold text-white group-hover:text-[#D6AD65] transition-colors">
+                      <h4
+                        className="text-base font-cinematic font-bold group-hover:text-[#D6AD65] transition-colors"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
                         {preset.name}
                       </h4>
                       <p className="text-xs text-[#D6AD65] font-medium">{preset.title}</p>
                     </div>
 
-                    <p className="text-xs text-[#8E8E9E] line-clamp-2 mb-3">
+                    <p className="text-xs line-clamp-2 mb-3" style={{ color: 'var(--text-faint)' }}>
                       {preset.description}
                     </p>
 
-                    <div className="pt-2.5 border-t border-[#252533] flex items-center justify-between text-[11px] text-[#A1A1AA]">
-                      <span className="font-mono text-[#71717A]">{preset.era}</span>
-                      <span className="text-[#D6AD65] group-hover:underline">Select Actor →</span>
+                    <div
+                      className="pt-2.5 border-t flex items-center justify-between text-[11px]"
+                      style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+                    >
+                      <span className="font-mono">{preset.era}</span>
+                      <span className="text-[#D6AD65] group-hover:underline font-semibold">Select Actor →</span>
                     </div>
                   </div>
                 </div>
@@ -243,7 +272,11 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
 
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-[#2C2C3A] hover:border-[#D6AD65]/60 rounded-2xl p-8 sm:p-12 text-center transition-all cursor-pointer bg-[#141419]/80 hover:bg-[#181822] group"
+            className="border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition-all cursor-pointer group"
+            style={{
+              backgroundColor: 'var(--bg-input)',
+              borderColor: 'var(--border)',
+            }}
           >
             <input
               ref={fileInputRef}
@@ -257,15 +290,21 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
               }}
             />
 
-            <div className="w-16 h-16 rounded-2xl bg-[#20202B] border border-[#2F2F3F] flex items-center justify-center text-[#D6AD65] mx-auto mb-4 group-hover:scale-110 group-hover:border-[#D6AD65]/50 transition-all shadow-lg">
+            <div
+              className="w-16 h-16 rounded-2xl border flex items-center justify-center text-[#D6AD65] mx-auto mb-4 group-hover:scale-110 transition-all shadow-sm"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                borderColor: 'var(--border)',
+              }}
+            >
               <Upload className="w-7 h-7" />
             </div>
 
-            <h3 className="text-base font-semibold text-white mb-1">
-              Upload Front-Facing Actor Portrait
+            <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+              Upload Front-Facing Face Portrait
             </h3>
-            <p className="text-xs text-[#8E8E9E] max-w-md mx-auto mb-4">
-              Upload JPG or PNG up to 10MB. For optimal re-targeting, use a high-resolution, evenly-lit headshot looking directly into the lens.
+            <p className="text-xs max-w-md mx-auto mb-4" style={{ color: 'var(--text-faint)' }}>
+              Upload JPG or PNG up to 10MB. For optimal results, use an evenly-lit headshot looking directly into the camera.
             </p>
 
             {uploadProgress !== null ? (
@@ -277,7 +316,7 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
                   </span>
                   <span>{uploadProgress}%</span>
                 </div>
-                <div className="w-full bg-[#20202B] h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-[var(--border)] h-2 rounded-full overflow-hidden">
                   <div
                     className="bg-gradient-to-r from-[#D6AD65] to-[#8E3048] h-full transition-all duration-300 rounded-full"
                     style={{ width: `${uploadProgress}%` }}
@@ -294,11 +333,18 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
             )}
           </div>
 
-          {/* Honest guidelines note */}
-          <div className="p-3.5 rounded-xl bg-[#171720] border border-[#262635] flex items-start gap-2.5 text-xs text-[#8E8E9E]">
+          {/* Guidelines note */}
+          <div
+            className="p-3.5 rounded-xl border flex items-start gap-2.5 text-xs"
+            style={{
+              backgroundColor: 'var(--bg-input)',
+              borderColor: 'var(--border)',
+              color: 'var(--text-faint)',
+            }}
+          >
             <Info className="w-4 h-4 text-[#D6AD65] shrink-0 mt-0.5" />
             <p>
-              <strong className="text-white">Studio Quality Guidelines:</strong> Avoid heavy sunglasses, extreme head tilts, or motion blur. The neural model normalizes ambient light to match the destination frame.
+              <strong style={{ color: 'var(--text-primary)' }}>Quality Guidelines:</strong> Avoid heavy sunglasses, extreme head tilts, or blur. The model normalizes ambient light to match the destination footage.
             </p>
           </div>
         </div>
@@ -306,4 +352,3 @@ export const FaceSelectionPanel: React.FC<FaceSelectionPanelProps> = ({
     </div>
   );
 };
-

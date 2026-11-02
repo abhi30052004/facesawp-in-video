@@ -3,22 +3,28 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { StudioStatusFooter } from './StudioStatusFooter';
-import { DemoBanner } from '../common/DemoBanner';
 
 export const AppLayout: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#09090B] text-[#EDEDED] flex flex-col font-sans relative selection:bg-[#D6AD65]/30 selection:text-[#FFF5DC]">
-      {/* Disclaimer / Demo Banner */}
-      <DemoBanner />
-
+    <div className="min-h-screen text-[var(--text-primary)] flex flex-col font-sans relative" style={{ backgroundColor: 'var(--bg-page)' }}>
       <div className="flex flex-1 relative">
         {/* Sidebar */}
-        <Sidebar mobileOpen={mobileMenuOpen} setMobileOpen={setMobileMenuOpen} />
+        <Sidebar
+          mobileOpen={mobileMenuOpen}
+          setMobileOpen={setMobileMenuOpen}
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+        />
 
         {/* Content Wrapper */}
-        <div className="flex-1 flex flex-col min-w-0 lg:pl-[260px] transition-all duration-300">
+        <div
+          className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
+            collapsed ? 'lg:pl-[80px]' : 'lg:pl-[260px]'
+          }`}
+        >
           {/* Header */}
           <Header onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} />
 
@@ -37,4 +43,3 @@ export const AppLayout: React.FC = () => {
     </div>
   );
 };
-

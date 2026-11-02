@@ -34,11 +34,14 @@ export const MyProjectsPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-cinematic font-bold text-white flex items-center gap-2.5">
+          <h1
+            className="text-2xl sm:text-3xl font-cinematic font-bold flex items-center gap-2.5"
+            style={{ color: 'var(--text-primary)' }}
+          >
             <Film className="w-6 h-6 text-[#D6AD65]" />
-            Studio Film Roster & Archive
+            My Projects
           </h1>
-          <p className="text-xs sm:text-sm text-[#8E8E9E]">
+          <p className="text-xs sm:text-sm" style={{ color: 'var(--text-faint)' }}>
             Inspect, compare, and export previously rendered face swap sequences
           </p>
         </div>
@@ -68,13 +71,13 @@ export const MyProjectsPage: React.FC = () => {
       {filteredProjects.length === 0 ? (
         <Card className="text-center py-16 px-4">
           <Film className="w-12 h-12 text-[#71717A] mx-auto mb-3" />
-          <h3 className="text-lg font-cinematic font-bold text-white mb-1">
-            No Cinematic Sequences Found
+          <h3 className="text-lg font-cinematic font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+            No Projects Found
           </h3>
-          <p className="text-xs sm:text-sm text-[#8E8E9E] max-w-md mx-auto mb-6">
+          <p className="text-xs sm:text-sm max-w-md mx-auto mb-6" style={{ color: 'var(--text-faint)' }}>
             {searchQuery
               ? `No projects matched "${searchQuery}". Try adjusting your keywords or clearing the filter.`
-              : 'Your studio film archive is currently empty. Initiate your first neural face swap to populate your roster.'}
+              : 'Your project archive is currently empty. Start your first face swap to populate your list.'}
           </p>
           <Button
             size="md"
@@ -99,12 +102,19 @@ export const MyProjectsPage: React.FC = () => {
         </div>
       ) : (
         /* List View */
-        <div className="bg-[#14141B] border border-[#242432] rounded-2xl overflow-hidden divide-y divide-[#22222E]">
+        <div
+          className="rounded-2xl overflow-hidden border divide-y transition-colors duration-200"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            borderColor: 'var(--border-card)',
+          }}
+        >
           {filteredProjects.map((project) => (
             <div
               key={project.id}
               onClick={() => setSelectedProject(project)}
-              className="p-4 flex items-center justify-between gap-4 hover:bg-[#181822] transition-colors cursor-pointer group"
+              className="p-4 flex items-center justify-between gap-4 transition-colors cursor-pointer group hover:opacity-90"
+              style={{ borderColor: 'var(--border)' }}
             >
               <div className="flex items-center gap-4 min-w-0">
                 <img
@@ -113,13 +123,17 @@ export const MyProjectsPage: React.FC = () => {
                     'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&auto=format&fit=crop&q=80'
                   }
                   alt={project.title}
-                  className="w-16 h-10 rounded-lg object-cover border border-[#2E2E3E] shrink-0"
+                  className="w-16 h-10 rounded-lg object-cover shrink-0 border"
+                  style={{ borderColor: 'var(--border)' }}
                 />
                 <div className="min-w-0">
-                  <h4 className="text-sm font-cinematic font-bold text-white group-hover:text-[#D6AD65] transition-colors truncate">
+                  <h4
+                    className="text-sm font-cinematic font-bold group-hover:text-[#D6AD65] transition-colors truncate"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
                     {project.title}
                   </h4>
-                  <div className="flex items-center gap-3 text-xs text-[#8E8E9E]">
+                  <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-faint)' }}>
                     <span>Actor: {project.targetFace?.name || 'Persona'}</span>
                     <span>•</span>
                     <span className="font-mono">{formatDate(project.createdAt)}</span>
@@ -142,7 +156,8 @@ export const MyProjectsPage: React.FC = () => {
                       e.stopPropagation();
                       setSelectedProject(project);
                     }}
-                    className="p-1.5 rounded-lg text-[#A1A1AA] hover:text-[#D6AD65] transition-colors"
+                    className="p-1.5 rounded-lg transition-colors hover:opacity-80"
+                    style={{ color: 'var(--text-muted)' }}
                   >
                     <Eye className="w-4 h-4" />
                   </button>
@@ -151,7 +166,7 @@ export const MyProjectsPage: React.FC = () => {
                       e.stopPropagation();
                       deleteProject(project.id);
                     }}
-                    className="p-1.5 rounded-lg text-[#A1A1AA] hover:text-red-400 transition-colors"
+                    className="p-1.5 rounded-lg text-red-500 hover:text-red-600 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

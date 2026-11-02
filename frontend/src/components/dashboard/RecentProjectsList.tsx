@@ -19,18 +19,21 @@ export const RecentProjectsList: React.FC<RecentProjectsListProps> = ({ projects
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-cinematic font-bold text-white flex items-center gap-2">
+          <h2
+            className="text-xl font-cinematic font-bold flex items-center gap-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
             <Film className="w-5 h-5 text-[#D6AD65]" />
             Recent Studio Projects
           </h2>
-          <p className="text-xs sm:text-sm text-[#8E8E9E]">
+          <p className="text-xs sm:text-sm" style={{ color: 'var(--text-faint)' }}>
             Recently generated sequences, comparisons, and drafts
           </p>
         </div>
 
         <button
           onClick={() => navigate('/projects')}
-          className="text-xs font-semibold text-[#D6AD65] hover:text-[#F4DE9C] flex items-center gap-1.5 transition-colors cursor-pointer"
+          className="text-xs font-semibold text-[#D6AD65] hover:opacity-80 flex items-center gap-1.5 transition-colors cursor-pointer"
         >
           <span>View All ({projects.length})</span>
           <ArrowRight className="w-3.5 h-3.5" />
@@ -40,8 +43,10 @@ export const RecentProjectsList: React.FC<RecentProjectsListProps> = ({ projects
       {recent.length === 0 ? (
         <Card className="text-center py-12">
           <Film className="w-10 h-10 text-[#71717A] mx-auto mb-3" />
-          <h3 className="text-base font-semibold text-white mb-1">No Projects Found</h3>
-          <p className="text-xs text-[#8E8E9E] mb-4 max-w-sm mx-auto">
+          <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+            No Projects Found
+          </h3>
+          <p className="text-xs mb-4 max-w-sm mx-auto" style={{ color: 'var(--text-faint)' }}>
             You haven't initiated any face swap renders yet. Upload your first clip to start.
           </p>
           <Button size="sm" variant="primary" onClick={() => navigate('/create')}>
@@ -84,10 +89,13 @@ export const RecentProjectsList: React.FC<RecentProjectsListProps> = ({ projects
 
               {/* Project Meta */}
               <div>
-                <h3 className="text-sm font-cinematic font-bold text-white group-hover:text-[#D6AD65] transition-colors truncate mb-1">
+                <h3
+                  className="text-sm font-cinematic font-bold group-hover:text-[#D6AD65] transition-colors truncate mb-1"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   {proj.title}
                 </h3>
-                <div className="flex items-center justify-between text-xs text-[#8E8E9E]">
+                <div className="flex items-center justify-between text-xs" style={{ color: 'var(--text-faint)' }}>
                   <span className="flex items-center gap-1 font-mono text-[11px]">
                     <Clock className="w-3 h-3 text-[#71717A]" />
                     {formatDate(proj.createdAt)}

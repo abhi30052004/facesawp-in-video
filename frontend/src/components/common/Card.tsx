@@ -15,22 +15,26 @@ export const Card: React.FC<CardProps> = ({
   goldBorder = false,
   burgundyBorder = false,
   hoverEffect = false,
+  style,
   ...props
 }) => {
   return (
     <div
       className={cn(
-        'bg-[#17171C] border border-[#272733] rounded-2xl p-6 transition-all duration-300 relative',
-        hoverEffect && 'hover:border-[#383849] hover:bg-[#1A1A22] hover:-translate-y-0.5',
-        goldBorder && 'border-[#D6AD65]/30 hover:border-[#D6AD65]/60',
-        burgundyBorder && 'border-[#8E3048]/35 hover:border-[#8E3048]/60',
+        'rounded-2xl p-6 transition-all duration-300 relative border',
+        hoverEffect && 'hover:-translate-y-0.5 hover:shadow-md',
         glow && 'cinema-card-glow',
         className
       )}
+      style={{
+        backgroundColor: 'var(--bg-card)',
+        borderColor: goldBorder ? 'var(--gold)' : burgundyBorder ? 'var(--burgundy)' : 'var(--border-card)',
+        color: 'var(--text-primary)',
+        ...style,
+      }}
       {...props}
     >
       {children}
     </div>
   );
 };
-

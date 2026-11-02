@@ -19,12 +19,12 @@ export const Badge: React.FC<BadgeProps> = ({
   const baseStyles = 'inline-flex items-center gap-1.5 font-medium rounded-full tracking-wide uppercase';
 
   const variants = {
-    gold: 'bg-[#D6AD65]/15 text-[#F3DC9B] border border-[#D6AD65]/30',
-    burgundy: 'bg-[#8E3048]/20 text-[#FFA8BD] border border-[#8E3048]/40',
-    emerald: 'bg-emerald-950/40 text-emerald-300 border border-emerald-700/40',
-    amber: 'bg-amber-950/40 text-amber-300 border border-amber-700/40',
-    slate: 'bg-[#22222C] text-[#A1A1AA] border border-[#2F2F3D]',
-    demo: 'bg-gradient-to-r from-[#D6AD65]/20 to-[#8E3048]/20 text-[#F5E6C8] border border-[#D6AD65]/40 font-semibold',
+    gold: 'bg-[#D6AD65]/15 text-[#B8822A] dark:text-[#F3DC9B] border border-[#D6AD65]/30',
+    burgundy: 'bg-[#8E3048]/15 text-[#8E3048] dark:text-[#FFA8BD] border border-[#8E3048]/30',
+    emerald: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30',
+    amber: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30',
+    slate: 'bg-black/5 dark:bg-[#22222C] text-[#52525B] dark:text-[#A1A1AA] border border-black/10 dark:border-[#2F2F3D]',
+    demo: 'bg-[#D6AD65]/15 text-[#8A5F1A] dark:text-[#F5E6C8] border border-[#D6AD65]/40 font-semibold',
   };
 
   const sizes = {
@@ -39,4 +39,3 @@ export const Badge: React.FC<BadgeProps> = ({
     </span>
   );
 };
-

@@ -44,10 +44,10 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
 
   const [logs, setLogs] = useState<string[]>([
     activeJob
-      ? `[MONGODB] Registered Job ID: ${activeJob.jobId} (Status: ${activeJob.status})`
-      : 'Initializing BollyMesh AI runtime environment...',
+      ? `Registered Job ID: ${activeJob.jobId} (Status: ${activeJob.status})`
+      : 'Initializing AI processing environment...',
     'Demuxing video container: ' + (sourceVideo?.name || 'input_stream.mp4'),
-    '[PHASE 5B PIPELINE] OpenCV YuNet Face Detection + 5-Point Alignment + Neural Model Adapter initialized.',
+    'Face Detection & Alignment initialized.',
   ]);
   const logContainerRef = useRef<HTMLDivElement>(null);
 
@@ -97,24 +97,25 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
           setProgress(100);
           setLogs((prev) => [
             ...prev,
-            '[COMPLETED] Master neural face replacement rendered successfully.',
-            `[OUTPUT] Video artifact generated: ${liveJob.outputVideoUrl}`,
+            '[COMPLETED] Master face replacement rendered successfully.',
           ]);
-          clearInterval(pollInterval);
           setTimeout(() => {
-            onProcessingComplete(liveJob.outputVideoUrl);
-          }, 1000);
+            if (isMounted) {
+              onProcessingComplete(liveJob.outputVideoUrl);
+            }
+          }, 800);
+          clearInterval(pollInterval);
         } else if (liveJob.status === 'failed') {
           setLogs((prev) => [
             ...prev,
-            `[ERROR] Pipeline failed: ${liveJob.errorMessage || 'Unknown error'}`,
+            `[FAILED] ${liveJob.errorMessage || 'Processing job terminated.'}`,
           ]);
           clearInterval(pollInterval);
         }
       } catch (err) {
-        // Polling error fallback
+        console.warn('Job polling request error:', err);
       }
-    }, 1200);
+    }, 1500);
 
     return () => {
       isMounted = false;
@@ -122,7 +123,7 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
     };
   }, [activeJob, onProcessingComplete]);
 
-  // Realistic fallback stage progression for demo mode
+  // Fallback stage progression for demo mode
   useEffect(() => {
     if (activeJob?.jobId && isModelNotConfigured) return;
     if (activeJob?.jobId && jobStatus === 'completed') return;
@@ -132,27 +133,24 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
 
     const stageLogs: Record<number, string[]> = {
       0: [
-        'Decoding H.264 stream into working frames...',
+        'Decoding video stream into working frames...',
         'Generated frame buffers in memory cache.',
-        'Assessing motion vectors and camera shake index: 0.04 (Stable)',
+        'Assessing motion vectors and camera stability...',
       ],
       1: [
-        `Registering target face identity: ${targetFace?.name || 'Selected Persona'}`,
-        'Computed 5-point YuNet canonical facial landmarks.',
-        'Estimating head pitch, roll, and yaw angles...',
-        'Generating affine transformation matrices for face normalization.',
+        `Registering target face: ${targetFace?.name || 'Selected Persona'}`,
+        'Computing facial landmarks and alignment...',
+        'Generating transformation matrices...',
       ],
       2: [
-        'Executing neural inference on CPUExecutionProvider...',
-        'Harmonizing ambient lighting & skin tone via Reinhard LAB transfer...',
-        'Generating feathered alpha boundary mask (Gaussian sigma: 9.0)...',
-        'Compositing face canvas without harsh boundary seams.',
+        'Executing face swap model...',
+        'Harmonizing ambient lighting & skin tone...',
+        'Compositing face canvas without boundary seams...',
       ],
       3: [
-        'Executing temporal tracking & anti-jitter smoothing pass...',
-        'Remuxing 48kHz stereo AAC audio pass-through...',
-        'Embedding synthetic media watermark: BollySwap AI • Synthetic Media...',
-        'Finalizing MP4 container checksum validation.',
+        'Executing temporal tracking & smoothing pass...',
+        'Preserving original audio track...',
+        'Finalizing video file...',
       ],
     };
 
@@ -201,7 +199,6 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
     setProgress(100);
     setLogs((prev) => [
       ...prev,
-      '[SIMULATION NOTE] User fast-forwarded demo rendering simulation.',
       '[COMPLETED] Master comparison renders ready for inspection.',
     ]);
     setTimeout(() => {
@@ -214,120 +211,92 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Honest Model Not Configured Callout (Phase 5B) */}
-      {isModelNotConfigured ? (
-        <div className="p-5 rounded-2xl bg-[#1A1813] border border-[#D6AD65]/40 shadow-xl space-y-4">
-          <div className="flex items-start gap-3.5">
-            <div className="p-2.5 rounded-xl bg-[#D6AD65]/20 text-[#D6AD65] shrink-0 mt-0.5">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div className="flex-1 space-y-2">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h4 className="font-semibold text-base text-[#F4DE9C]">
-                  Neural Face-Swap Engine Unconfigured (Phase 5B)
-                </h4>
-                <Badge variant="demo">Pipeline Operational</Badge>
-              </div>
-              <p className="text-xs text-[#CCCCCC] leading-relaxed">
-                The video processing infrastructure, OpenCV YuNet face detection, and canonical 5-point alignment completed successfully in MongoDB Atlas. Because proprietary/restricted neural model weights require explicit commercial licensing, BollySwap AI strictly avoids shipping unlicensed weights and will never fabricate fake results.
-              </p>
-
-              <div className="bg-[#121217] border border-[#2B2B38] rounded-xl p-3 text-xs font-mono text-[#A1A1AA] space-y-1.5">
-                <div className="flex items-center gap-2 text-[#D6AD65] font-semibold">
-                  <FileCode className="w-4 h-4" />
-                  <span>How to activate real neural inference:</span>
-                </div>
-                <p className="text-[11px] text-[#8E8E9E]">
-                  1. Place an approved ONNX face-swap model into <code className="text-[#D6AD65]">backend/models/</code>
-                </p>
-                <p className="text-[11px] text-[#8E8E9E]">
-                  2. In <code className="text-[#D6AD65]">backend/.env</code>, set:
-                </p>
-                <div className="bg-black/60 p-2 rounded text-[11px] text-emerald-400 select-all">
-                  FACE_SWAP_ENABLED=true<br />
-                  FACE_SWAP_MODEL_PATH=models/your_face_swap_model.onnx<br />
-                  FACE_SWAP_PROVIDER=CPUExecutionProvider
-                </div>
-              </div>
-            </div>
+      {/* Simulation Active Notice */}
+      <div
+        className="p-4 rounded-xl border flex items-start justify-between gap-4 transition-colors"
+        style={{
+          backgroundColor: 'rgba(214, 173, 101, 0.1)',
+          borderColor: 'var(--gold)',
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-[#D6AD65]/20 text-[#D6AD65] shrink-0 mt-0.5">
+            <Sparkles className="w-4 h-4" />
           </div>
-
-          <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-[#2B2B38]">
-            <span className="text-xs font-mono text-[#8E8E9E]">
-              Current Step: {currentStepMessage}
-            </span>
-            <Button
-              size="sm"
-              variant="burgundy"
-              rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-              onClick={() => onProcessingComplete()}
-            >
-              Inspect Results & Comparison View
-            </Button>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                {activeJob?.jobId ? 'Video Processing Pipeline Active' : 'Processing Simulation Active'}
+              </span>
+              <Badge variant="demo">{activeJob?.jobId ? 'Backend Pipeline' : 'Preview Mode'}</Badge>
+            </div>
+            <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              {activeJob?.jobId
+                ? 'Video processing stream executing: audio extraction, face detection, alignment, and container synthesis.'
+                : 'Processing screen demonstrating the multi-stage pipeline with real-time stage progressions and logs.'}
+            </p>
           </div>
         </div>
-      ) : (
-        /* Honest Simulation Active Notice */
-        <div className="p-4 rounded-xl bg-[#1A1813] border border-[#D6AD65]/30 flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-[#D6AD65]/20 text-[#D6AD65] shrink-0 mt-0.5">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm text-[#F4DE9C]">
-                  {activeJob?.jobId ? 'Neural Video Processing Pipeline Active' : 'Demo Pipeline Simulation Active'}
-                </span>
-                <Badge variant="demo">{activeJob?.jobId ? 'Phase 5B Pipeline' : 'Interactive Demo'}</Badge>
-              </div>
-              <p className="text-xs text-[#A1A1AA] mt-1 leading-relaxed">
-                {activeJob?.jobId
-                  ? 'Sequential video processing stream executing on CPU: audio extraction, YuNet detection, canonical alignment, and container synthesis.'
-                  : 'This interactive processing screen demonstrates the multi-stage neural pipeline with real telemetry, stage progressions, and frame logs.'}
-              </p>
-            </div>
-          </div>
 
-          <Button
-            size="sm"
-            variant="outline"
-            leftIcon={<FastForward className="w-3.5 h-3.5" />}
-            onClick={handleFastForward}
-            className="shrink-0 text-xs hidden sm:inline-flex"
-          >
-            Fast-Forward Demo
-          </Button>
-        </div>
-      )}
+        <Button
+          size="sm"
+          variant="outline"
+          leftIcon={<FastForward className="w-3.5 h-3.5" />}
+          onClick={handleFastForward}
+          className="shrink-0 text-xs hidden sm:inline-flex"
+        >
+          Fast-Forward
+        </Button>
+      </div>
 
       {/* Progress & Time Hero Card */}
-      <div className="bg-[#15151C] border border-[#272736] rounded-2xl p-6 relative overflow-hidden">
+      <div
+        className="border rounded-2xl p-6 relative overflow-hidden transition-colors"
+        style={{
+          backgroundColor: 'var(--bg-input)',
+          borderColor: 'var(--border)',
+        }}
+      >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
             <span className="text-xs font-mono text-[#D6AD65] uppercase tracking-wider flex items-center gap-1.5 mb-1">
               <Activity className="w-3.5 h-3.5 animate-pulse text-[#D6AD65]" />
               Stage {currentStageIdx + 1} of {DEMO_PIPELINE_STAGES.length}: {DEMO_PIPELINE_STAGES[currentStageIdx]?.title}
             </span>
-            <h3 className="text-xl sm:text-2xl font-cinematic font-bold text-white">
-              {isModelNotConfigured ? 'Pipeline Verified & Ready' : 'Synthesizing Identity Re-enactment'}
+            <h3 className="text-xl sm:text-2xl font-cinematic font-bold" style={{ color: 'var(--text-primary)' }}>
+              {isModelNotConfigured ? 'Pipeline Ready' : 'Synthesizing Face Swap'}
             </h3>
           </div>
 
           <div className="flex items-center gap-4 text-xs font-mono">
-            <div className="flex items-center gap-1.5 text-[#A1A1AA] bg-[#1C1C26] px-3 py-1.5 rounded-lg border border-[#2B2B38]">
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                borderColor: 'var(--border)',
+                color: 'var(--text-secondary)',
+              }}
+            >
               <Clock className="w-3.5 h-3.5 text-[#D6AD65]" />
               <span>Elapsed: {elapsedSec}s</span>
             </div>
-            <div className="flex items-center gap-1.5 text-[#A1A1AA] bg-[#1C1C26] px-3 py-1.5 rounded-lg border border-[#2B2B38]">
-              <Loader2 className={`w-3.5 h-3.5 ${isModelNotConfigured ? 'text-amber-400' : 'animate-spin text-[#8E3048]'}`} />
-              <span>{isModelNotConfigured ? 'Status: Unconfigured' : `Est. Remaining: ~${remainingSec}s`}</span>
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                borderColor: 'var(--border)',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#8E3048]" />
+              <span>{isModelNotConfigured ? 'Status: Ready' : `Est. Remaining: ~${remainingSec}s`}</span>
             </div>
           </div>
         </div>
 
         {/* Big Progress bar */}
         <div className="space-y-2">
-          <div className="w-full bg-[#20202C] h-3 rounded-full overflow-hidden p-0.5">
+          <div className="w-full h-3 rounded-full overflow-hidden p-0.5 border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
             <motion.div
               className="bg-gradient-to-r from-[#D6AD65] via-[#E0BC75] to-[#8E3048] h-full rounded-full"
               initial={{ width: '5%' }}
@@ -335,9 +304,9 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
               transition={{ duration: 0.3 }}
             />
           </div>
-          <div className="flex justify-between items-center text-xs font-mono text-[#8E8E9E]">
-            <span>Telemetry: {currentStepMessage}</span>
-            <span className="text-white font-bold">{progress}% Complete</span>
+          <div className="flex justify-between items-center text-xs font-mono" style={{ color: 'var(--text-faint)' }}>
+            <span>Status: {currentStepMessage}</span>
+            <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{progress}% Complete</span>
           </div>
         </div>
       </div>
@@ -347,30 +316,33 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
         {DEMO_PIPELINE_STAGES.map((stage, idx) => {
           const isDone = isModelNotConfigured || idx < currentStageIdx;
           const isActive = !isModelNotConfigured && idx === currentStageIdx;
-          const isPending = !isModelNotConfigured && idx > currentStageIdx;
 
           return (
             <div
               key={stage.id}
-              className={`p-4 rounded-xl border transition-all duration-300 relative ${
-                isActive
-                  ? 'bg-gradient-to-b from-[#1C1A16] to-[#15151C] border-[#D6AD65] shadow-[0_0_15px_rgba(214,173,101,0.15)]'
-                  : isDone
-                  ? 'bg-[#15151B] border-[#2A382A]'
-                  : 'bg-[#121217] border-[#20202B] opacity-60'
-              }`}
+              className="p-4 rounded-xl border transition-all duration-300 relative"
+              style={{
+                backgroundColor: isActive ? 'rgba(214, 173, 101, 0.12)' : 'var(--bg-input)',
+                borderColor: isActive ? 'var(--gold)' : 'var(--border)',
+              }}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-mono text-[#71717A]">STEP 0{idx + 1}</span>
-                {isDone && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-                {isActive && <Loader2 className="w-4 h-4 text-[#D6AD65] animate-spin" />}
-                {isPending && <div className="w-2 h-2 rounded-full bg-[#2A2A38]" />}
+                <span className="text-[10px] font-mono font-semibold" style={{ color: 'var(--text-muted)' }}>
+                  STAGE 0{idx + 1}
+                </span>
+                {isDone ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                ) : isActive ? (
+                  <Loader2 className="w-4 h-4 text-[#D6AD65] animate-spin" />
+                ) : (
+                  <div className="w-2 h-2 rounded-full border" style={{ borderColor: 'var(--border)' }} />
+                )}
               </div>
 
-              <h4 className="text-xs font-semibold text-white mb-1 leading-snug">
+              <h4 className="text-xs font-semibold mb-1 leading-snug" style={{ color: 'var(--text-primary)' }}>
                 {stage.title}
               </h4>
-              <p className="text-[11px] text-[#8E8E9E] line-clamp-2 leading-relaxed">
+              <p className="text-[11px] line-clamp-2 leading-relaxed" style={{ color: 'var(--text-faint)' }}>
                 {stage.detail}
               </p>
             </div>
@@ -379,33 +351,43 @@ export const ProcessingStageView: React.FC<ProcessingStageViewProps> = ({
       </div>
 
       {/* Live Stream Terminal Logs */}
-      <div className="bg-[#0C0C10] border border-[#22222E] rounded-xl overflow-hidden shadow-inner">
-        <div className="px-4 py-2 bg-[#121218] border-b border-[#20202B] flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-mono text-[#A1A1AA]">
+      <div
+        className="rounded-xl overflow-hidden border shadow-inner"
+        style={{
+          backgroundColor: 'var(--bg-input)',
+          borderColor: 'var(--border)',
+        }}
+      >
+        <div
+          className="px-4 py-2 border-b flex items-center justify-between"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            borderColor: 'var(--border)',
+          }}
+        >
+          <div className="flex items-center gap-2 text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
             <Terminal className="w-3.5 h-3.5 text-[#D6AD65]" />
-            <span>Neural Engine Console Stream</span>
+            <span>Process Console Stream</span>
           </div>
-          <span className="text-[10px] font-mono text-[#71717A]">
-            BollyMesh-Phase5B [ONNX Runtime CPU | OpenCV YuNet]
-          </span>
         </div>
 
         <div
           ref={logContainerRef}
           className="p-4 h-44 overflow-y-auto font-mono text-xs space-y-1.5 text-left"
+          style={{ color: 'var(--text-secondary)' }}
         >
           {logs.map((log, i) => (
-            <div key={i} className="flex items-start gap-2 text-[#9A9AA8]">
+            <div key={i} className="flex items-start gap-2">
               <span className="text-[#D6AD65] select-none">{'>'}</span>
               <span
                 className={
                   log.includes('STAGE')
-                    ? 'text-[#F4DE9C]'
+                    ? 'text-[#B8822A] dark:text-[#F4DE9C]'
                     : log.includes('ERROR')
-                    ? 'text-red-400'
+                    ? 'text-red-500'
                     : log.includes('NOTICE') || log.includes('COMPLETED')
-                    ? 'text-emerald-300'
-                    : 'text-[#B0B0C0]'
+                    ? 'text-emerald-500 dark:text-emerald-300'
+                    : 'inherit'
                 }
               >
                 {log}

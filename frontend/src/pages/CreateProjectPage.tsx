@@ -29,7 +29,7 @@ export const CreateProjectPage: React.FC = () => {
       ? wizardDraft.step
       : 'video';
   const [currentStep, setCurrentStep] = useState<WizardStep>(initialStep);
-  const [projectTitle, setProjectTitle] = useState(wizardDraft.title || 'Monsoon Soliloquy Re-enactment');
+  const [projectTitle, setProjectTitle] = useState(wizardDraft.title || 'Face Swap Project');
   const [sourceVideo, setSourceVideo] = useState<VideoMetadata | undefined>(wizardDraft.sourceVideo);
   const [targetFace, setTargetFace] = useState<TargetFaceSelection | undefined>(wizardDraft.targetFace);
   const [detectedTracks, setDetectedTracks] = useState<DetectedActorTrack[]>(wizardDraft.detectedTracks || []);
@@ -41,7 +41,7 @@ export const CreateProjectPage: React.FC = () => {
   const [backendJobData, setBackendJobData] = useState<any>(null);
   const [outputVideoUrl, setOutputVideoUrl] = useState<string | undefined>(undefined);
 
-  // Studio Pipeline Configuration
+  // Pipeline Configuration
   const [config, setConfig] = useState({
     faceEnhance: true,
     colorHarmony: true,
@@ -66,7 +66,6 @@ export const CreateProjectPage: React.FC = () => {
         consentConfirmed: true,
       });
 
-      // Attempt to trigger real backend video processing swap job
       try {
         const swapJob = await bollySwapApi.createSwapJob({
           projectId: proj?.projectId || activeProjectId,
@@ -99,31 +98,24 @@ export const CreateProjectPage: React.FC = () => {
     const newProject: FaceSwapProject = {
       id: `proj-${Date.now()}`,
       title: projectTitle,
-      status: 'completed',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      status: 'completed',
       sourceVideo,
       targetFace,
-      detectedTracks,
-      selectedActorTrackId,
-      configuration: config,
-      consentGranted: true,
-      consentTimestamp: new Date().toISOString(),
       result: {
         outputVideoUrl:
+          outputVideoUrl ||
           sourceVideo?.url ||
           'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-        originalVideoUrl:
-          sourceVideo?.url ||
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-        swappedFacePreviewUrl:
+        thumbnailUrl:
           targetFace?.previewUrl ||
           'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&auto=format&fit=crop&q=80',
-        resolution: `${config.resolutionTarget.toUpperCase()} Cinematic`,
+        resolution: `${config.resolutionTarget.toUpperCase()}`,
         renderDurationSec: 14.2,
         framesProcessed: 450,
         fps: 30,
-        modelIdentifier: 'BollyMesh-v2.4-NeuralBlend',
+        modelIdentifier: 'FaceSwap-NeuralBlend',
         isDemoSimulation: true,
         watermarked: config.watermarkEnabled,
         checksum: `sha256-${Math.random().toString(36).substring(2, 10)}`,
@@ -150,7 +142,13 @@ export const CreateProjectPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-16 max-w-5xl mx-auto">
       {/* Wizard Steps Stepper */}
-      <div className="bg-[#14141B] border border-[#242432] rounded-2xl p-4 sm:p-5">
+      <div
+        className="rounded-2xl p-4 sm:p-5 border transition-colors duration-200"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          borderColor: 'var(--border-card)',
+        }}
+      >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Step markers */}
           <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto pb-2 sm:pb-0">
@@ -159,9 +157,10 @@ export const CreateProjectPage: React.FC = () => {
               onClick={() => {
                 if (currentStep !== 'processing') setCurrentStep('video');
               }}
-              className={`flex items-center gap-2.5 cursor-pointer transition-colors ${
-                currentStep === 'video' ? 'text-[#D6AD65]' : 'text-[#71717A] hover:text-white'
-              }`}
+              className="flex items-center gap-2.5 cursor-pointer transition-colors"
+              style={{
+                color: currentStep === 'video' ? 'var(--gold)' : 'var(--text-muted)',
+              }}
             >
               <div
                 className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
@@ -169,15 +168,15 @@ export const CreateProjectPage: React.FC = () => {
                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                     : currentStep === 'video'
                     ? 'bg-[#D6AD65] text-[#09090B]'
-                    : 'bg-[#22222E] text-[#8E8E9E]'
+                    : 'bg-black/10 dark:bg-[#22222E] text-[var(--text-muted)]'
                 }`}
               >
                 {sourceVideo ? <Check className="w-4 h-4" /> : '1'}
               </div>
-              <span className="text-xs font-medium whitespace-nowrap">Footage Ingestion</span>
+              <span className="text-xs font-medium whitespace-nowrap">Source Video</span>
             </div>
 
-            <div className="w-6 h-[1px] bg-[#272738] shrink-0" />
+            <div className="w-6 h-[1px] bg-[var(--border)] shrink-0" />
 
             {/* Step 2 */}
             <div
@@ -185,12 +184,11 @@ export const CreateProjectPage: React.FC = () => {
                 if (canProceedToFace && currentStep !== 'processing') setCurrentStep('face');
               }}
               className={`flex items-center gap-2.5 transition-colors ${
-                !canProceedToFace
-                  ? 'opacity-40 cursor-not-allowed'
-                  : currentStep === 'face'
-                  ? 'text-[#D6AD65] cursor-pointer'
-                  : 'text-[#71717A] hover:text-white cursor-pointer'
+                !canProceedToFace ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
               }`}
+              style={{
+                color: currentStep === 'face' ? 'var(--gold)' : 'var(--text-muted)',
+              }}
             >
               <div
                 className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
@@ -198,55 +196,55 @@ export const CreateProjectPage: React.FC = () => {
                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                     : currentStep === 'face'
                     ? 'bg-[#D6AD65] text-[#09090B]'
-                    : 'bg-[#22222E] text-[#8E8E9E]'
+                    : 'bg-black/10 dark:bg-[#22222E] text-[var(--text-muted)]'
                 }`}
               >
                 {targetFace ? <Check className="w-4 h-4" /> : '2'}
               </div>
-              <span className="text-xs font-medium whitespace-nowrap">Target Identity</span>
+              <span className="text-xs font-medium whitespace-nowrap">Target Face</span>
             </div>
 
-            <div className="w-6 h-[1px] bg-[#272738] shrink-0" />
+            <div className="w-6 h-[1px] bg-[var(--border)] shrink-0" />
 
             {/* Step 3: Processing & Results */}
             <div
-              className={`flex items-center gap-2.5 ${
-                currentStep === 'processing' || currentStep === 'results'
-                  ? 'text-[#D6AD65]'
-                  : 'text-[#71717A]'
-              }`}
+              className="flex items-center gap-2.5"
+              style={{
+                color: currentStep === 'processing' || currentStep === 'results' ? 'var(--gold)' : 'var(--text-muted)',
+              }}
             >
               <div
                 className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
                   currentStep === 'results'
                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                     : currentStep === 'processing'
-                    ? 'bg-[#8E3048] text-white animate-pulse'
-                    : 'bg-[#22222E] text-[#8E8E9E]'
+                    ? 'bg-[#D6AD65] text-[#09090B] animate-pulse'
+                    : 'bg-black/10 dark:bg-[#22222E] text-[var(--text-muted)]'
                 }`}
               >
                 3
               </div>
-              <span className="text-xs font-medium whitespace-nowrap">Synthesis & Output</span>
+              <span className="text-xs font-medium whitespace-nowrap">Process & Export</span>
             </div>
           </div>
 
-          {/* Quick config toggle button */}
+          {/* Settings Drawer Toggle */}
           <button
             onClick={() => setShowConfigDrawer(!showConfigDrawer)}
-            className="self-end sm:self-auto px-3 py-1.5 rounded-xl bg-[#1A1A24] border border-[#2B2B3C] text-xs text-[#A1A1AA] hover:text-[#D6AD65] hover:border-[#D6AD65]/40 flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="flex items-center gap-2 text-xs font-medium cursor-pointer transition-colors self-end sm:self-auto hover:opacity-80"
+            style={{ color: 'var(--text-muted)' }}
           >
-            <Sliders className="w-3.5 h-3.5 text-[#D6AD65]" />
-            <span>AI Pipeline Settings</span>
+            <Sliders className="w-4 h-4 text-[#D6AD65]" />
+            <span>Pipeline Settings</span>
           </button>
         </div>
 
         {/* Collapsible Pipeline Settings Panel */}
         {showConfigDrawer && (
-          <div className="mt-4 pt-4 border-t border-[#252535] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+          <div className="mt-4 pt-4 border-t grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs" style={{ borderColor: 'var(--border)' }}>
             {/* Resolution Target */}
             <div className="space-y-1">
-              <label className="text-[#A1A1AA] font-mono">Render Target Resolution</label>
+              <label className="font-mono block" style={{ color: 'var(--text-secondary)' }}>Target Resolution</label>
               <select
                 value={config.resolutionTarget}
                 onChange={(e) =>
@@ -255,31 +253,16 @@ export const CreateProjectPage: React.FC = () => {
                     resolutionTarget: e.target.value as '720p' | '1080p' | '4k',
                   }))
                 }
-                className="w-full bg-[#1A1A24] border border-[#2F2F40] rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-[#D6AD65]"
+                className="w-full rounded-lg px-3 py-1.5 focus:outline-none transition-colors border"
+                style={{
+                  backgroundColor: 'var(--bg-input)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text-primary)',
+                }}
               >
-                <option value="720p">720p High-Efficiency Preview</option>
-                <option value="1080p">1080p Master Cinematic (Default)</option>
-                <option value="4k">4K Ultra Cinema Master</option>
-              </select>
-            </div>
-
-            {/* Color Grade */}
-            <div className="space-y-1">
-              <label className="text-[#A1A1AA] font-mono">Cinematic Color Palette</label>
-              <select
-                value={config.cinematicGrade}
-                onChange={(e) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    cinematicGrade: e.target.value as any,
-                  }))
-                }
-                className="w-full bg-[#1A1A24] border border-[#2F2F40] rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-[#D6AD65]"
-              >
-                <option value="authentic">Authentic Camera Profile</option>
-                <option value="warm-vintage">90s Golden Nostalgia</option>
-                <option value="vibrant-masala">Vibrant Masala Extravaganza</option>
-                <option value="moody-noir">Moody Neo-Noir Crime</option>
+                <option value="720p">720p HD</option>
+                <option value="1080p">1080p Full HD (Default)</option>
+                <option value="4k">4K Ultra HD</option>
               </select>
             </div>
 
@@ -292,9 +275,9 @@ export const CreateProjectPage: React.FC = () => {
                   onChange={(e) =>
                     setConfig((prev) => ({ ...prev, faceEnhance: e.target.checked }))
                   }
-                  className="rounded text-[#D6AD65] bg-[#09090B] border-[#38384A]"
+                  className="rounded text-[#D6AD65]"
                 />
-                <span className="text-[#EDEDED]">High-Precision Face Texture Restorer</span>
+                <span style={{ color: 'var(--text-primary)' }}>Face Texture Enhancement</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -304,9 +287,9 @@ export const CreateProjectPage: React.FC = () => {
                   onChange={(e) =>
                     setConfig((prev) => ({ ...prev, temporalConsistency: e.target.checked }))
                   }
-                  className="rounded text-[#D6AD65] bg-[#09090B] border-[#38384A]"
+                  className="rounded text-[#D6AD65]"
                 />
-                <span className="text-[#EDEDED]">Anti-Jitter Temporal Consistency</span>
+                <span style={{ color: 'var(--text-primary)' }}>Temporal Consistency</span>
               </label>
             </div>
           </div>
@@ -315,17 +298,27 @@ export const CreateProjectPage: React.FC = () => {
 
       {/* Editable Project Title */}
       <div className="flex items-center gap-3">
-        <label className="text-xs font-mono text-[#71717A] uppercase shrink-0">Project Name:</label>
+        <label className="text-xs font-mono uppercase shrink-0" style={{ color: 'var(--text-muted)' }}>Project Name:</label>
         <input
           type="text"
           value={projectTitle}
           onChange={(e) => setProjectTitle(e.target.value)}
-          className="bg-transparent border-b border-[#2C2C3D] hover:border-[#D6AD65] focus:border-[#D6AD65] text-white text-base sm:text-lg font-cinematic font-bold px-1 py-0.5 focus:outline-none transition-colors flex-1"
+          className="bg-transparent border-b hover:border-[#D6AD65] focus:border-[#D6AD65] text-base sm:text-lg font-cinematic font-bold px-1 py-0.5 focus:outline-none transition-colors flex-1"
+          style={{
+            borderColor: 'var(--border)',
+            color: 'var(--text-primary)',
+          }}
         />
       </div>
 
       {/* Main Step Render Container */}
-      <div className="bg-[#111116] border border-[#22222E] rounded-3xl p-6 sm:p-8 cinema-card-glow relative">
+      <div
+        className="rounded-3xl p-6 sm:p-8 cinema-card-glow relative border transition-colors duration-200"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          borderColor: 'var(--border-card)',
+        }}
+      >
         {currentStep === 'video' && (
           <div className="space-y-6">
             <VideoUploadPanel
@@ -349,7 +342,7 @@ export const CreateProjectPage: React.FC = () => {
               }}
             />
 
-            {/* Real OpenCV YuNet Face Detection & Actor Selection Panel */}
+            {/* Face Detection Panel */}
             {sourceVideo && (
               <ActorTrackSelectionPanel
                 projectId={activeProjectId}
@@ -372,7 +365,7 @@ export const CreateProjectPage: React.FC = () => {
             )}
 
             {/* Step navigation bottom bar */}
-            <div className="pt-4 border-t border-[#20202C] flex items-center justify-between">
+            <div className="pt-4 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
               <Button size="sm" variant="ghost" onClick={() => navigate('/')}>
                 Cancel
               </Button>
@@ -400,14 +393,14 @@ export const CreateProjectPage: React.FC = () => {
             />
 
             {/* Step navigation bottom bar */}
-            <div className="pt-4 border-t border-[#20202C] flex items-center justify-between">
+            <div className="pt-4 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
               <Button
                 size="sm"
                 variant="secondary"
                 leftIcon={<ArrowLeft className="w-4 h-4" />}
                 onClick={() => setCurrentStep('video')}
               >
-                Back: Source Footage
+                Back: Source Video
               </Button>
 
               <Button
@@ -417,7 +410,7 @@ export const CreateProjectPage: React.FC = () => {
                 leftIcon={<Sparkles className="w-4 h-4" />}
                 onClick={() => setIsConsentModalOpen(true)}
               >
-                Proceed to Likeness Consent & Synthesis
+                Proceed to Likeness Consent & Swap
               </Button>
             </div>
           </div>

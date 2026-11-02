@@ -56,11 +56,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSelect, onD
         <div className="mb-3">
           <h3
             onClick={() => onSelect(project)}
-            className="text-base font-cinematic font-bold text-white group-hover:text-[#D6AD65] transition-colors truncate cursor-pointer"
+            className="text-base font-cinematic font-bold group-hover:text-[#D6AD65] transition-colors truncate cursor-pointer"
+            style={{ color: 'var(--text-primary)' }}
           >
             {project.title}
           </h3>
-          <p className="text-xs text-[#A1A1AA] flex items-center gap-1.5 mt-0.5">
+          <p className="text-xs flex items-center gap-1.5 mt-0.5" style={{ color: 'var(--text-secondary)' }}>
             <span>Target:</span>
             <span className="text-[#D6AD65] font-medium truncate">
               {project.targetFace?.name || 'Custom Persona'}
@@ -70,7 +71,10 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSelect, onD
       </div>
 
       {/* Footer Meta & Actions */}
-      <div className="pt-3 border-t border-[#252535] flex items-center justify-between text-xs text-[#8E8E9E]">
+      <div
+        className="pt-3 border-t flex items-center justify-between text-xs"
+        style={{ borderColor: 'var(--border)', color: 'var(--text-faint)' }}
+      >
         <div className="flex items-center gap-1 font-mono text-[11px]">
           <Clock className="w-3.5 h-3.5 text-[#71717A]" />
           <span>{formatDate(project.createdAt)}</span>
@@ -80,7 +84,8 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSelect, onD
           <button
             onClick={() => onSelect(project)}
             aria-label="Inspect project"
-            className="p-1.5 rounded-lg text-[#A1A1AA] hover:text-[#D6AD65] hover:bg-[#1E1E28] transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg transition-colors cursor-pointer hover:opacity-80"
+            style={{ color: 'var(--text-muted)' }}
           >
             <Eye className="w-4 h-4" />
           </button>
@@ -90,7 +95,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSelect, onD
               onDelete(project.id);
             }}
             aria-label="Delete project"
-            className="p-1.5 rounded-lg text-[#A1A1AA] hover:text-red-400 hover:bg-[#1E1E28] transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-red-500 hover:text-red-600 transition-colors cursor-pointer"
           >
             <Trash2 className="w-4 h-4" />
           </button>

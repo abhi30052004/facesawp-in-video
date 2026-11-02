@@ -56,7 +56,7 @@ export const Modal: React.FC<ModalProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onClose}
-            className="fixed inset-0 bg-[#09090B]/80 backdrop-blur-md"
+            className="fixed inset-0 bg-black/60 backdrop-blur-md"
           />
 
           {/* Modal Container */}
@@ -66,26 +66,39 @@ export const Modal: React.FC<ModalProps> = ({
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
             className={cn(
-              'relative w-full bg-[#17171C] border border-[#2B2B38] rounded-2xl shadow-2xl overflow-hidden z-10 my-8',
+              'relative w-full rounded-2xl shadow-2xl overflow-hidden z-10 my-8 border',
               maxDimensions[maxWidth]
             )}
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              borderColor: 'var(--border-card)',
+              color: 'var(--text-primary)',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             {(title || showCloseButton) && (
-              <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-[#252532]">
+              <div
+                className="flex items-center justify-between px-6 pt-6 pb-4 border-b"
+                style={{ borderColor: 'var(--border)' }}
+              >
                 <div>
                   {title && (
-                    <h3 className="text-lg font-cinematic font-bold text-[#EDEDED]">{title}</h3>
+                    <h3 className="text-lg font-cinematic font-bold" style={{ color: 'var(--text-primary)' }}>
+                      {title}
+                    </h3>
                   )}
                   {description && (
-                    <p className="text-xs text-[#A1A1AA] mt-0.5">{description}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                      {description}
+                    </p>
                   )}
                 </div>
                 {showCloseButton && (
                   <button
                     onClick={onClose}
-                    className="p-1.5 text-[#A1A1AA] hover:text-[#EDEDED] hover:bg-[#23232F] rounded-lg transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg transition-colors cursor-pointer hover:opacity-75"
+                    style={{ color: 'var(--text-muted)' }}
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -101,4 +114,3 @@ export const Modal: React.FC<ModalProps> = ({
     </AnimatePresence>
   );
 };
-

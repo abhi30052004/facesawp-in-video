@@ -46,10 +46,10 @@ export const ActorTrackSelectionPanel: React.FC<ActorTrackSelectionPanelProps> =
 
     setIsDetecting(true);
     setError(null);
-    setCurrentStage('Initializing OpenCV YuNet Face Detection Pipeline...');
+    setCurrentStage('Initializing face detection...');
 
     try {
-      setCurrentStage('Extracting and sampling video frames at 1.5s intervals...');
+      setCurrentStage('Sampling video frames...');
       const result = await bollySwapApi.detectFaces(projectId, sourceVideo.uploadId);
 
       setHasScanned(true);
@@ -61,7 +61,7 @@ export const ActorTrackSelectionPanel: React.FC<ActorTrackSelectionPanelProps> =
     } catch (err: any) {
       setError(
         err?.message ||
-          'Face detection failed. Ensure the backend server is running and the video contains readable frames.'
+          'Face detection failed. Ensure the video contains readable face frames.'
       );
     } finally {
       setIsDetecting(false);
@@ -73,7 +73,7 @@ export const ActorTrackSelectionPanel: React.FC<ActorTrackSelectionPanelProps> =
     try {
       await bollySwapApi.selectProjectActorTrack(projectId, trackId);
     } catch (err) {
-      console.warn('Backend track selection persistence skipped or pending:', err);
+      console.warn('Track selection persistence skipped or pending:', err);
     }
   };
 
@@ -88,57 +88,74 @@ export const ActorTrackSelectionPanel: React.FC<ActorTrackSelectionPanelProps> =
   };
 
   return (
-    <div className="space-y-6 pt-4 border-t border-[#242434]">
-      {/* Header with Title and Tech Badge */}
+    <div className="space-y-6 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+      {/* Header with Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <Scan className="w-5 h-5 text-[#D6AD65]" />
-            <h3 className="text-base sm:text-lg font-cinematic font-bold text-white tracking-wide">
-              Actor Face Detection in Footage
+            <h3
+              className="text-base sm:text-lg font-cinematic font-bold tracking-wide"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Detected Faces in Video
             </h3>
-            <Badge variant="gold" size="sm">
-              OpenCV YuNet (CPU)
-            </Badge>
           </div>
-          <p className="text-xs text-[#A1A1AA] mt-1">
-            Scans footage using lightweight neural inference to locate actors and group continuous appearances across timestamps.
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            Detect faces in the footage to choose which person you want to swap.
           </p>
         </div>
 
-        {/* Action Button */}
-        {!isDetecting && (
+        {!hasScanned && (
           <Button
             size="sm"
-            variant={detectedTracks.length > 0 ? 'secondary' : 'primary'}
-            leftIcon={detectedTracks.length > 0 ? <RotateCcw className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+            variant="primary"
+            isLoading={isDetecting}
+            leftIcon={<Scan className="w-4 h-4" />}
             onClick={handleRunDetection}
-            disabled={!sourceVideo?.uploadId}
           >
-            {detectedTracks.length > 0 ? 'Re-scan Faces' : 'Detect Faces in Footage'}
+            Scan Faces
+          </Button>
+        )}
+
+        {hasScanned && (
+          <Button
+            size="sm"
+            variant="outline"
+            isLoading={isDetecting}
+            leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
+            onClick={handleRunDetection}
+          >
+            Re-scan Faces
           </Button>
         )}
       </div>
 
       {/* Loading & Processing State */}
       {isDetecting && (
-        <div className="bg-[#151520] border border-[#D6AD65]/30 rounded-2xl p-6 text-center space-y-4 animate-pulse">
+        <div
+          className="border rounded-2xl p-6 text-center space-y-4 animate-pulse"
+          style={{
+            backgroundColor: 'var(--bg-input)',
+            borderColor: 'var(--gold)',
+          }}
+        >
           <div className="flex items-center justify-center gap-3">
             <Loader2 className="w-6 h-6 text-[#D6AD65] animate-spin" />
-            <span className="text-sm font-cinematic font-semibold text-white tracking-wider">
+            <span className="text-sm font-cinematic font-semibold tracking-wider" style={{ color: 'var(--text-primary)' }}>
               {currentStage}
             </span>
           </div>
 
-          <div className="max-w-md mx-auto grid grid-cols-3 gap-2 text-[11px] font-mono text-[#A1A1AA]">
-            <div className="bg-[#1C1C28] p-2 rounded-lg border border-[#2A2A3C]">
+          <div className="max-w-md mx-auto grid grid-cols-3 gap-2 text-[11px] font-mono" style={{ color: 'var(--text-secondary)' }}>
+            <div className="p-2 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
               1. Frame Sampling
             </div>
-            <div className="bg-[#1C1C28] p-2 rounded-lg border border-[#2A2A3C]">
-              2. YuNet Inference
+            <div className="p-2 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+              2. Face Detection
             </div>
-            <div className="bg-[#1C1C28] p-2 rounded-lg border border-[#2A2A3C]">
-              3. IoU Clustering
+            <div className="p-2 rounded-lg border" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}>
+              3. Track Clustering
             </div>
           </div>
         </div>
@@ -160,14 +177,19 @@ export const ActorTrackSelectionPanel: React.FC<ActorTrackSelectionPanelProps> =
 
       {/* Empty State: Scanned but 0 faces detected */}
       {hasScanned && !isDetecting && detectedTracks.length === 0 && !error && (
-        <div className="p-6 rounded-2xl bg-[#171722] border border-[#2B2B3C] text-center space-y-3">
+        <div
+          className="p-6 rounded-2xl border text-center space-y-3"
+          style={{
+            backgroundColor: 'var(--bg-input)',
+            borderColor: 'var(--border)',
+          }}
+        >
           <AlertCircle className="w-8 h-8 text-[#D6AD65] mx-auto opacity-80" />
-          <h4 className="text-sm font-cinematic font-bold text-white">
-            No Human Faces Detected in Footage
+          <h4 className="text-sm font-cinematic font-bold" style={{ color: 'var(--text-primary)' }}>
+            No Faces Detected
           </h4>
-          <p className="text-xs text-[#A1A1AA] max-w-lg mx-auto">
-            OpenCV YuNet did not locate any facial boundaries exceeding the 0.60 confidence threshold in this clip.
-            Please ensure the video contains visible human actors with standard framing.
+          <p className="text-xs max-w-lg mx-auto" style={{ color: 'var(--text-faint)' }}>
+            No clear facial boundaries were detected in this clip. Ensure the video contains visible human faces with clear lighting.
           </p>
           <Button size="sm" variant="secondary" onClick={handleRunDetection}>
             Retry Detection
@@ -179,8 +201,8 @@ export const ActorTrackSelectionPanel: React.FC<ActorTrackSelectionPanelProps> =
       {detectedTracks.length > 0 && !isDetecting && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-[#A1A1AA]">
-              Candidate Actor Tracks ({detectedTracks.length} Found) — Choose Actor to Replace:
+            <span className="text-xs font-mono uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+              Detected Faces ({detectedTracks.length} Found) — Choose who to replace:
             </span>
             <span className="text-xs text-[#D6AD65] font-mono">
               {selectedTrackId ? `Selected: ${selectedTrackId}` : 'None Selected'}
@@ -196,11 +218,11 @@ export const ActorTrackSelectionPanel: React.FC<ActorTrackSelectionPanelProps> =
                 <div
                   key={track.trackId}
                   onClick={() => handleSelectTrack(track.trackId)}
-                  className={`group relative rounded-2xl p-4 transition-all duration-300 cursor-pointer border flex flex-col justify-between ${
-                    isSelected
-                      ? 'bg-[#1C1814] border-[#D6AD65] shadow-[0_0_20px_rgba(214,173,101,0.25)]'
-                      : 'bg-[#14141C] border-[#252535] hover:border-[#8E3048]/60 hover:bg-[#181824]'
-                  }`}
+                  className="group relative rounded-2xl p-4 transition-all duration-300 cursor-pointer border flex flex-col justify-between"
+                  style={{
+                    backgroundColor: isSelected ? 'rgba(214, 173, 101, 0.12)' : 'var(--bg-input)',
+                    borderColor: isSelected ? 'var(--gold)' : 'var(--border)',
+                  }}
                 >
                   {/* Selected check badge */}
                   {isSelected && (
@@ -210,15 +232,17 @@ export const ActorTrackSelectionPanel: React.FC<ActorTrackSelectionPanelProps> =
                   )}
 
                   <div className="space-y-3">
-                    {/* Cropped Face Thumbnail */}
-                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#0A0A0E] border border-[#282838] flex items-center justify-center">
+                    {/* Face Thumbnail */}
+                    <div
+                      className="relative aspect-square w-full rounded-xl overflow-hidden border flex items-center justify-center bg-black/5 dark:bg-[#0A0A0E]"
+                      style={{ borderColor: 'var(--border)' }}
+                    >
                       {thumbUrl ? (
                         <img
                           src={thumbUrl}
                           alt={track.label}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {
-                            // Fallback if local blob URL or server link fails
                             (e.target as HTMLElement).style.display = 'none';
                           }}
                         />
@@ -234,71 +258,60 @@ export const ActorTrackSelectionPanel: React.FC<ActorTrackSelectionPanelProps> =
 
                     {/* Actor Details */}
                     <div>
-                      <h4 className="text-sm font-cinematic font-bold text-white flex items-center gap-1.5">
+                      <h4 className="text-sm font-cinematic font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
                         {track.label}
                       </h4>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[11px] font-mono text-emerald-400">
+                        <span className="text-[11px] font-mono text-emerald-500">
                           {Math.round(track.confidence * 100)}% Confidence
                         </span>
-                        <span className="text-[#52525B] text-xs">•</span>
-                        <span className="text-[11px] text-[#A1A1AA] flex items-center gap-1">
-                          <Video className="w-3 h-3 text-[#A1A1AA]" />
-                          {track.occurrences} {track.occurrences === 1 ? 'frame' : 'frames'}
+                        <span className="text-[11px] flex items-center gap-1" style={{ color: 'var(--text-faint)' }}>
+                          • {track.occurrences} {track.occurrences === 1 ? 'frame' : 'frames'}
                         </span>
                       </div>
                     </div>
 
                     {/* Timestamps appearances */}
                     {track.timestamps && track.timestamps.length > 0 && (
-                      <div className="pt-2 border-t border-[#222230] flex items-center gap-1.5 flex-wrap">
+                      <div className="pt-2 border-t flex items-center gap-1.5 flex-wrap" style={{ borderColor: 'var(--border)' }}>
                         <Clock className="w-3 h-3 text-[#71717A] shrink-0" />
-                        <span className="text-[10px] font-mono text-[#71717A]">Timestamps:</span>
+                        <span className="text-[10px] font-mono text-[#71717A]">Times:</span>
                         {track.timestamps.slice(0, 4).map((ts, idx) => (
                           <span
                             key={idx}
-                            className="px-1.5 py-0.5 rounded bg-[#1F1F2C] text-[10px] font-mono text-[#D4D4D8]"
+                            className="px-1.5 py-0.5 rounded text-[10px] font-mono border"
+                            style={{
+                              backgroundColor: 'var(--bg-card)',
+                              borderColor: 'var(--border)',
+                              color: 'var(--text-secondary)',
+                            }}
                           >
                             {ts.toFixed(1)}s
                           </span>
                         ))}
-                        {track.timestamps.length > 4 && (
-                          <span className="text-[10px] text-[#71717A]">
-                            +{track.timestamps.length - 4} more
-                          </span>
-                        )}
                       </div>
                     )}
                   </div>
 
                   {/* Radio Selection Action Button */}
-                  <div className="mt-4 pt-3 border-t border-[#222230]">
+                  <div className="mt-4 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
                     <div
-                      className={`w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-center transition-colors flex items-center justify-center gap-1.5 ${
-                        isSelected
-                          ? 'bg-[#D6AD65] text-[#09090B]'
-                          : 'bg-[#222230] text-[#A1A1AA] group-hover:text-white'
-                      }`}
+                      className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-center transition-colors flex items-center justify-center gap-1.5"
+                      style={{
+                        backgroundColor: isSelected ? 'var(--gold)' : 'var(--bg-card)',
+                        color: isSelected ? '#09090B' : 'var(--text-secondary)',
+                      }}
                     >
                       <UserCheck className="w-3.5 h-3.5" />
-                      {isSelected ? 'Target Actor to Replace' : 'Select for Replacement'}
+                      {isSelected ? 'Selected Face' : 'Select Face'}
                     </div>
                   </div>
                 </div>
               );
             })}
           </div>
-
-          {/* Phase 4 Integrity Notice */}
-          <div className="p-3 rounded-xl bg-[#12121A] border border-[#20202E] flex items-center gap-2.5 text-xs text-[#A1A1AA]">
-            <ShieldCheck className="w-4 h-4 text-[#D6AD65] shrink-0" />
-            <span>
-              Real OpenCV YuNet face detection & tracking hypotheses. The neural face swapping and latent blending pipeline will execute in Phase 5.
-            </span>
-          </div>
         </div>
       )}
     </div>
   );
 };
-

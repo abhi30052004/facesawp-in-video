@@ -100,12 +100,15 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
       {/* Instructions header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h2 className="text-xl font-cinematic font-bold text-white flex items-center gap-2">
+          <h2
+            className="text-xl font-cinematic font-bold flex items-center gap-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
             <Film className="w-5 h-5 text-[#D6AD65]" />
-            Step 1: Source Cinematic Footage
+            Step 1: Source Video
           </h2>
-          <p className="text-xs sm:text-sm text-[#A1A1AA]">
-            Upload the scene where the actor's face will be reenacted.
+          <p className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>
+            Upload the video where the face will be swapped.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -135,11 +138,11 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition-all cursor-pointer relative overflow-hidden group ${
-            isDragging
-              ? 'border-[#D6AD65] bg-[#D6AD65]/10 scale-[0.99]'
-              : 'border-[#2C2C3A] hover:border-[#D6AD65]/50 bg-[#141419]/80 hover:bg-[#181822]'
-          }`}
+          className="border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition-all cursor-pointer relative overflow-hidden group"
+          style={{
+            backgroundColor: isDragging ? 'rgba(214, 173, 101, 0.1)' : 'var(--bg-input)',
+            borderColor: isDragging ? 'var(--gold)' : 'var(--border)',
+          }}
         >
           <input
             ref={fileInputRef}
@@ -150,15 +153,21 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
           />
 
           <div className="flex flex-col items-center max-w-md mx-auto">
-            <div className="w-16 h-16 rounded-2xl bg-[#20202B] border border-[#2F2F3F] flex items-center justify-center text-[#D6AD65] mb-4 group-hover:scale-110 group-hover:border-[#D6AD65]/50 transition-all shadow-lg">
+            <div
+              className="w-16 h-16 rounded-2xl border flex items-center justify-center text-[#D6AD65] mb-4 group-hover:scale-110 transition-all shadow-sm"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                borderColor: 'var(--border)',
+              }}
+            >
               <Upload className="w-7 h-7" />
             </div>
 
-            <h3 className="text-base font-semibold text-white mb-1">
+            <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
               Drag & drop your video clip here
             </h3>
-            <p className="text-xs text-[#8E8E9E] mb-4">
-              Supports MP4, MOV, or WebM format. Crisp lighting & clear facial visibility recommended.
+            <p className="text-xs mb-4" style={{ color: 'var(--text-faint)' }}>
+              Supports MP4, MOV, or WebM format. Clear lighting & visible faces recommended.
             </p>
 
             {uploadProgress !== null ? (
@@ -166,11 +175,11 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
                 <div className="flex justify-between items-center text-xs font-mono text-[#D6AD65]">
                   <span className="flex items-center gap-1.5">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Streaming to Studio Storage...
+                    Uploading Video...
                   </span>
                   <span>{uploadProgress}%</span>
                 </div>
-                <div className="w-full bg-[#20202B] h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-[var(--border)] h-2 rounded-full overflow-hidden">
                   <div
                     className="bg-gradient-to-r from-[#D6AD65] to-[#8E3048] h-full transition-all duration-300 rounded-full"
                     style={{ width: `${uploadProgress}%` }}
@@ -194,7 +203,13 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
         </div>
       ) : (
         /* Video Preview Card */
-        <div className="bg-[#14141A] border border-[#2A2A38] rounded-2xl overflow-hidden shadow-2xl">
+        <div
+          className="rounded-2xl overflow-hidden shadow-md border"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            borderColor: 'var(--border)',
+          }}
+        >
           <div className="relative aspect-video max-h-[420px] bg-black flex items-center justify-center group">
             <video
               ref={videoRef}
@@ -215,7 +230,7 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
             {/* Video status tag */}
             <div className="absolute top-3 left-3 flex items-center gap-2">
               <Badge variant="gold">
-                {currentVideo.isDemoSample ? 'Demo Clip' : 'Uploaded Footage'}
+                {currentVideo.isDemoSample ? 'Demo Clip' : 'Uploaded Video'}
               </Badge>
               <span className="text-[11px] font-mono bg-black/70 px-2 py-0.5 rounded text-white border border-white/10">
                 {currentVideo.width}x{currentVideo.height} • {currentVideo.fps || 30} FPS
@@ -224,16 +239,28 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
           </div>
 
           {/* Footage Specs Bar */}
-          <div className="p-4 bg-[#171720] border-t border-[#262635] flex flex-wrap items-center justify-between gap-4">
+          <div
+            className="p-4 border-t flex flex-wrap items-center justify-between gap-4"
+            style={{
+              backgroundColor: 'var(--bg-input)',
+              borderColor: 'var(--border)',
+            }}
+          >
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-[#20202C] text-[#D6AD65]">
+              <div
+                className="p-2 rounded-lg text-[#D6AD65] border"
+                style={{
+                  backgroundColor: 'var(--bg-card)',
+                  borderColor: 'var(--border)',
+                }}
+              >
                 <Film className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-white truncate max-w-[280px] sm:max-w-md">
+                <p className="text-sm font-semibold truncate max-w-[280px] sm:max-w-md" style={{ color: 'var(--text-primary)' }}>
                   {currentVideo.name}
                 </p>
-                <p className="text-xs text-[#8E8E9E] font-mono">
+                <p className="text-xs font-mono" style={{ color: 'var(--text-faint)' }}>
                   {formatBytes(currentVideo.sizeBytes)} • Duration: {formatDuration(currentVideo.durationSec)} • {currentVideo.format.toUpperCase()}
                 </p>
               </div>
@@ -254,14 +281,14 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
       )}
 
       {/* Quick Demo Clip Presets Selector */}
-      <div className="pt-2 border-t border-[#22222E]">
+      <div className="pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-semibold text-[#D6AD65] uppercase tracking-wider flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5" />
-            Quick Demo Clips (Instant Exploration)
+            Quick Demo Clips
           </span>
-          <span className="text-[11px] text-[#71717A]">
-            Select pre-packaged footage to test the pipeline immediately
+          <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            Select pre-packaged footage to test immediately
           </span>
         </div>
 
@@ -270,25 +297,33 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
             <div
               key={demo.name}
               onClick={() => onVideoSelected(demo)}
-              className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                currentVideo?.name === demo.name
-                  ? 'border-[#D6AD65] bg-[#D6AD65]/10 shadow-[0_0_15px_rgba(214,173,101,0.15)]'
-                  : 'border-[#252532] hover:border-[#38384A] bg-[#15151B]'
-              }`}
+              className="p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between hover:opacity-90"
+              style={{
+                backgroundColor: currentVideo?.name === demo.name ? 'rgba(214, 173, 101, 0.1)' : 'var(--bg-input)',
+                borderColor: currentVideo?.name === demo.name ? 'var(--gold)' : 'var(--border)',
+              }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[#20202A] flex items-center justify-center text-[#D6AD65]">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-[#D6AD65] border"
+                  style={{
+                    backgroundColor: 'var(--bg-card)',
+                    borderColor: 'var(--border)',
+                  }}
+                >
                   <Film className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-white">{demo.name.replace('.mp4', '')}</p>
-                  <p className="text-[11px] text-[#8E8E9E] font-mono">
-                    {demo.width}x{demo.height} • {demo.durationSec}s • Demo
+                  <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {demo.name.replace('.mp4', '')}
+                  </p>
+                  <p className="text-[11px] font-mono" style={{ color: 'var(--text-faint)' }}>
+                    {demo.width}x{demo.height} • {demo.durationSec}s
                   </p>
                 </div>
               </div>
 
-              <span className="text-xs text-[#D6AD65] font-semibold">Select</span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--gold)' }}>Select</span>
             </div>
           ))}
         </div>
@@ -296,4 +331,3 @@ export const VideoUploadPanel: React.FC<VideoUploadPanelProps> = ({
     </div>
   );
 };
-

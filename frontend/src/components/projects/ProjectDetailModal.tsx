@@ -4,7 +4,6 @@ import {
   Pause,
   Download,
   Trash2,
-  ShieldCheck,
   Film,
 } from 'lucide-react';
 import { FaceSwapProject } from '../../types/project';
@@ -71,7 +70,10 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
     >
       <div className="space-y-6">
         {/* Main Video Stage */}
-        <div className="relative aspect-video max-h-[460px] bg-black rounded-2xl overflow-hidden border border-[#2B2B3B] group">
+        <div
+          className="relative aspect-video max-h-[460px] bg-black rounded-2xl overflow-hidden border group"
+          style={{ borderColor: 'var(--border)' }}
+        >
           <video
             ref={videoRef}
             src={videoUrl}
@@ -96,9 +98,15 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
         </div>
 
         {/* Info Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Target Actor Identity */}
-          <div className="p-4 rounded-xl bg-[#14141B] border border-[#252533] flex items-center gap-3">
+          <div
+            className="p-4 rounded-xl border flex items-center gap-3 transition-colors"
+            style={{
+              backgroundColor: 'var(--bg-input)',
+              borderColor: 'var(--border)',
+            }}
+          >
             <img
               src={
                 project.targetFace?.previewUrl ||
@@ -108,10 +116,10 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
               className="w-12 h-12 rounded-xl object-cover border border-[#D6AD65]"
             />
             <div>
-              <span className="text-[10px] font-mono uppercase text-[#71717A] block">
+              <span className="text-[10px] font-mono uppercase block" style={{ color: 'var(--text-muted)' }}>
                 Target Actor
               </span>
-              <span className="text-sm font-semibold text-white">
+              <span className="text-sm font-semibold block" style={{ color: 'var(--text-primary)' }}>
                 {project.targetFace?.name || 'Actor Persona'}
               </span>
               <span className="text-xs text-[#D6AD65] block">
@@ -121,35 +129,24 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
           </div>
 
           {/* Specs */}
-          <div className="p-4 rounded-xl bg-[#14141B] border border-[#252533]">
-            <span className="text-[10px] font-mono uppercase text-[#71717A] block">
-              Resolution & Engine
+          <div
+            className="p-4 rounded-xl border transition-colors flex flex-col justify-center"
+            style={{
+              backgroundColor: 'var(--bg-input)',
+              borderColor: 'var(--border)',
+            }}
+          >
+            <span className="text-[10px] font-mono uppercase block" style={{ color: 'var(--text-muted)' }}>
+              Resolution
             </span>
-            <span className="text-sm font-semibold text-white">
-              {project.result?.resolution || '1080p (1920x1080)'}
-            </span>
-            <span className="text-xs text-[#A1A1AA] block mt-0.5">
-              Model: {project.result?.modelIdentifier || 'BollyMesh-v2.4'}
-            </span>
-          </div>
-
-          {/* Provenance */}
-          <div className="p-4 rounded-xl bg-[#14141B] border border-[#252533]">
-            <span className="text-[10px] font-mono uppercase text-[#71717A] block">
-              Digital Provenance
-            </span>
-            <span className="text-sm font-semibold text-emerald-400 flex items-center gap-1">
-              <ShieldCheck className="w-4 h-4" />
-              C2PA Synthetic Signature
-            </span>
-            <span className="text-xs text-[#8E8E9E] block mt-0.5 font-mono">
-              Checksum: {project.result?.checksum || 'sha256-verified'}
+            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {project.result?.resolution || '1080p'}
             </span>
           </div>
         </div>
 
         {/* Modal Actions Footer */}
-        <div className="pt-4 border-t border-[#232330] flex items-center justify-between">
+        <div className="pt-4 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
           <Button
             size="sm"
             variant="danger"

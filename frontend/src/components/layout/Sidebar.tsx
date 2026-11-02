@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -8,21 +8,22 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  Zap,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
-import { useProjects } from '../../context/ProjectContext';
 
 interface SidebarProps {
   mobileOpen: boolean;
   setMobileOpen: (open: boolean) => void;
+  collapsed: boolean;
+  setCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) => {
-  const [collapsed, setCollapsed] = useState(false);
-  const { stats } = useProjects();
-
+export const Sidebar: React.FC<SidebarProps> = ({
+  mobileOpen,
+  setMobileOpen,
+  collapsed,
+  setCollapsed,
+}) => {
   const navItems = [
     {
       name: 'Dashboard',
@@ -55,7 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
       {/* Mobile Backdrop */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-[#09090B]/80 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -67,19 +68,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
         }}
         transition={{ duration: 0.25, ease: 'easeInOut' }}
         className={cn(
-          'fixed top-0 bottom-0 left-0 z-40 flex flex-col bg-[#111116] border-r border-[#242430] transition-transform duration-300 lg:translate-x-0',
+          'fixed top-0 bottom-0 left-0 z-40 flex flex-col border-r transition-transform duration-300 lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
+        style={{
+          backgroundColor: 'var(--bg-sidebar)',
+          borderColor: 'var(--border)',
+          color: 'var(--text-primary)',
+        }}
       >
         {/* Brand Header */}
-        <div className="h-20 flex items-center justify-between px-5 border-b border-[#22222E]">
+        <div
+          className={cn(
+            'h-20 flex items-center border-b transition-all duration-200',
+            collapsed ? 'justify-center px-0' : 'justify-between px-5'
+          )}
+          style={{ borderColor: 'var(--border)' }}
+        >
           <NavLink
             to="/"
             onClick={() => setMobileOpen(false)}
-            className="flex items-center gap-3 overflow-hidden group"
+            className="flex items-center gap-3 group"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D6AD65] via-[#8E3048] to-[#591C2B] p-0.5 shrink-0 shadow-[0_0_15px_rgba(214,173,101,0.25)] group-hover:shadow-[0_0_20px_rgba(214,173,101,0.4)] transition-shadow">
-              <div className="w-full h-full bg-[#0E0E12] rounded-[10px] flex items-center justify-center">
+            {/* Clapperboard Logo */}
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D6AD65] via-[#8E3048] to-[#591C2B] p-0.5 shrink-0 shadow-sm transition-shadow">
+              <div
+                className="w-full h-full rounded-[10px] flex items-center justify-center"
+                style={{ backgroundColor: 'var(--bg-card)' }}
+              >
                 <Clapperboard className="w-5 h-5 text-[#D6AD65] group-hover:scale-110 transition-transform" />
               </div>
             </div>
@@ -93,25 +109,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                   transition={{ duration: 0.15 }}
                   className="flex flex-col whitespace-nowrap"
                 >
-                  <span className="font-cinematic font-bold text-base tracking-wider text-white flex items-center gap-1.5">
-                    BollySwap <span className="text-[#D6AD65] text-xs font-sans px-1.5 py-0.5 rounded bg-[#D6AD65]/15 border border-[#D6AD65]/30">AI</span>
+                  <span
+                    className="font-cinematic font-bold text-base tracking-wider flex items-center gap-1.5"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    FaceSwap <span className="text-[#D6AD65] text-xs font-sans px-1.5 py-0.5 rounded bg-[#D6AD65]/15 border border-[#D6AD65]/30">AI</span>
                   </span>
-                  <span className="text-[10px] text-[#8E8E9E] tracking-widest uppercase font-mono">
-                    Cinematic Studio
+                  <span
+                    className="text-[10px] tracking-widest uppercase font-mono"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    Video Studio
                   </span>
                 </motion.div>
               )}
             </AnimatePresence>
           </NavLink>
 
-          {/* Desktop Collapse Button */}
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-[#8E8E9E] hover:text-white hover:bg-[#1E1E28] transition-colors cursor-pointer"
-          >
-            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </button>
+          {/* Top Collapse Button (only visible when expanded on desktop) */}
+          {!collapsed && (
+            <button
+              onClick={() => setCollapsed(true)}
+              aria-label="Collapse sidebar"
+              className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg transition-colors cursor-pointer hover:opacity-80"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Navigation Links */}
@@ -122,15 +147,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
               <NavLink
                 key={item.path}
                 to={item.path}
+                title={collapsed ? item.name : undefined}
                 onClick={() => setMobileOpen(false)}
                 className={({ isActive }) =>
                   cn(
-                    'flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-sm font-medium transition-all group relative',
+                    'flex items-center rounded-xl text-sm font-medium transition-all group relative',
+                    collapsed ? 'justify-center w-11 h-11 mx-auto' : 'gap-3.5 px-3.5 py-3',
                     isActive
-                      ? 'bg-gradient-to-r from-[#D6AD65]/15 via-[#8E3048]/10 to-transparent text-[#F4DE9C] border-l-4 border-[#D6AD65] shadow-sm'
-                      : 'text-[#9D9DAE] hover:text-[#EDEDED] hover:bg-[#191922]'
+                      ? 'bg-gradient-to-r from-[#D6AD65]/20 via-[#8E3048]/15 to-transparent text-[#D6AD65] border-l-4 border-[#D6AD65] shadow-sm font-semibold'
+                      : 'hover:opacity-100 opacity-80 hover:bg-black/5 dark:hover:bg-white/5'
                   )
                 }
+                style={({ isActive }) => ({
+                  color: isActive ? 'var(--gold)' : 'var(--text-secondary)',
+                })}
               >
                 <Icon className="w-5 h-5 shrink-0 transition-transform group-hover:scale-110" />
                 {!collapsed && (
@@ -146,39 +176,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
           })}
         </div>
 
-        {/* Quota & Studio Status Card */}
-        <div className="p-3 border-t border-[#22222E]">
-          {!collapsed ? (
-            <div className="bg-[#181820] border border-[#2A2A38] rounded-xl p-3.5 relative overflow-hidden">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-[#D6AD65] flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 fill-[#D6AD65]" />
-                  Render Credits
-                </span>
-                <span className="text-xs font-mono font-medium text-white">
-                  {stats.creditsRemaining}/{stats.creditsTotal}
-                </span>
-              </div>
-              <div className="w-full bg-[#242432] h-1.5 rounded-full overflow-hidden mb-2.5">
-                <div
-                  className="bg-gradient-to-r from-[#D6AD65] to-[#8E3048] h-full rounded-full transition-all duration-500"
-                  style={{ width: `${(stats.creditsRemaining / stats.creditsTotal) * 100}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-[#8E8E9E]">
-                <span>{stats.currentTier}</span>
-                <span className="text-[#D6AD65] hover:underline cursor-pointer">Tier Details</span>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center py-2 text-[#D6AD65]">
-              <Sparkles className="w-5 h-5 mb-1" />
-              <span className="text-[10px] font-mono">{stats.creditsRemaining}</span>
-            </div>
-          )}
+        {/* Bottom Collapse/Expand Footer Button */}
+        <div className="p-3 border-t hidden lg:block" style={{ borderColor: 'var(--border)' }}>
+          <button
+            onClick={() => setCollapsed((prev) => !prev)}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={cn(
+              'w-full flex items-center rounded-xl transition-colors cursor-pointer hover:bg-black/5 dark:hover:bg-white/5',
+              collapsed ? 'justify-center w-11 h-11 mx-auto' : 'gap-3 px-3.5 py-2.5'
+            )}
+            style={{ color: 'var(--text-muted)' }}
+          >
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            {!collapsed && <span className="text-xs font-medium">Collapse</span>}
+          </button>
         </div>
       </motion.aside>
     </>
   );
 };
-
