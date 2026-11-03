@@ -6,7 +6,7 @@ import logging
 import subprocess
 import shutil
 from pathlib import Path
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, List
 
 from app.core.config import get_settings
 
@@ -72,6 +72,7 @@ class FaceFusionEngine:
             self.python_exe = sys.executable
         self._active_processes: Dict[str, asyncio.subprocess.Process] = {}
         self._active_jobs_state: Dict[str, Dict[str, Any]] = {}
+        self._job_semaphore = asyncio.Semaphore(1)
 
     def get_status(self) -> Dict[str, Any]:
         """Returns engine readiness, model status, and FFmpeg capability."""
@@ -206,12 +207,116 @@ class FaceFusionEngine:
                 shutil.copy2(input_video, output_video)
         return True
 
+    def verify_swap_execution(
+        self,
+        source_video_path: str,
+        output_video_path: str,
+        sampled_face_frames: List[int],
+    ) -> Dict[str, Any]:
+        """
+        Validates that neural face replacement was actually applied by measuring
+        pixel differential between source and rendered output inside the detected face region.
+        """
+        import cv2
+        import numpy as np
+        from app.services.face_detector import get_shared_yunet_detector
+
+        detector = get_shared_yunet_detector()
+        src_path = Path(source_video_path)
+        out_path = Path(output_video_path)
+
+        if not out_path.exists() or out_path.stat().st_size == 0:
+            return {"verified": False, "error": "Output video file missing or empty."}
+
+        cap_src = cv2.VideoCapture(str(src_path))
+        cap_out = cv2.VideoCapture(str(out_path))
+
+        if not cap_src.isOpened() or not cap_out.isOpened():
+            cap_src.release()
+            cap_out.release()
+            return {"verified": False, "error": "Cannot open video streams for verification."}
+
+        face_diffs = []
+        bg_diffs = []
+        verified_frames = []
+
+        test_frames = sampled_face_frames[:5] if sampled_face_frames else [0]
+
+        try:
+            for f_idx in test_frames:
+                cap_src.set(cv2.CAP_PROP_POS_FRAMES, f_idx)
+                ret_src, frame_src = cap_src.read()
+                cap_out.set(cv2.CAP_PROP_POS_FRAMES, f_idx)
+                ret_out, frame_out = cap_out.read()
+
+                if not ret_src or not ret_out or frame_src is None or frame_out is None:
+                    continue
+
+                if frame_out.shape != frame_src.shape:
+                    frame_out = cv2.resize(frame_out, (frame_src.shape[1], frame_src.shape[0]))
+
+                faces = detector.detect_in_bgr_frame(frame_src, frame_index=f_idx)
+                if not faces:
+                    continue
+
+                primary = max(faces, key=lambda f: f.bbox[2] * f.bbox[3])
+                bx, by, bw, bh = primary.bbox
+                h, w = frame_src.shape[:2]
+
+                x1, y1 = max(0, bx), max(0, by)
+                x2, y2 = min(w, bx + bw), min(h, by + bh)
+
+                if (x2 - x1) < 10 or (y2 - y1) < 10:
+                    continue
+
+                abs_diff = np.abs(frame_src.astype(np.float32) - frame_out.astype(np.float32))
+                face_diff = float(np.mean(abs_diff[y1:y2, x1:x2]))
+
+                corner_h = max(5, int(h * 0.15))
+                corner_w = max(5, int(w * 0.15))
+                bg_diff = float(np.mean(abs_diff[:corner_h, :corner_w]))
+
+                face_diffs.append(face_diff)
+                bg_diffs.append(bg_diff)
+
+                is_swapped = (face_diff > 4.0) and (face_diff > bg_diff * 1.25 or face_diff > bg_diff + 2.0)
+                verified_frames.append({
+                    "frame_index": f_idx,
+                    "face_diff": round(face_diff, 2),
+                    "bg_diff": round(bg_diff, 2),
+                    "swapped": is_swapped,
+                })
+        finally:
+            cap_src.release()
+            cap_out.release()
+
+        avg_face = float(np.mean(face_diffs)) if face_diffs else 0.0
+        avg_bg = float(np.mean(bg_diffs)) if bg_diffs else 0.0
+        swapped_count = sum(1 for vf in verified_frames if vf["swapped"])
+
+        is_verified = (swapped_count > 0) or (avg_face > 4.5 and avg_face > avg_bg * 1.25)
+
+        return {
+            "verified": is_verified,
+            "swapped_frames_count": swapped_count,
+            "total_sampled_frames": len(verified_frames),
+            "avg_face_diff": round(avg_face, 2),
+            "avg_bg_diff": round(avg_bg, 2),
+            "frame_details": verified_frames,
+        }
+
     async def run_facefusion_job(
         self,
         job_id: str,
         source_face_path: str,
         target_video_path: str,
         output_video_path: str,
+        reference_frame_number: Optional[int] = None,
+        face_selector_mode: str = "reference",
+        reference_face_distance: float = 0.6,
+        face_detector_score: float = 0.45,
+        face_landmarker_score: float = 0.45,
+        sampled_face_frames: Optional[List[int]] = None,
         on_progress: Optional[Callable[[int, str], None]] = None,
         threads: Optional[int] = None,
         fast_mode: bool = False,
@@ -221,157 +326,199 @@ class FaceFusionEngine:
         Optimized for CPU-only execution with dynamic multi-threading and fast frame formats.
         Parses progress and updates job status in real time.
         """
-        abs_source = str(Path(source_face_path).resolve())
-        abs_target = str(Path(target_video_path).resolve())
-        abs_out_path = Path(output_video_path).resolve()
-        abs_out_path.parent.mkdir(parents=True, exist_ok=True)
-        abs_final_output = str(abs_out_path)
-        raw_output = str(abs_out_path.parent / f"raw_ff_{abs_out_path.name}")
+        async with self._job_semaphore:
+            abs_source = str(Path(source_face_path).resolve())
+            abs_target = str(Path(target_video_path).resolve())
+            abs_out_path = Path(output_video_path).resolve()
+            abs_out_path.parent.mkdir(parents=True, exist_ok=True)
+            abs_final_output = str(abs_out_path)
+            raw_output = str(abs_out_path.parent / f"raw_ff_{abs_out_path.name}")
 
-        self._active_jobs_state[job_id] = {
-            "status": "processing",
-            "stage": "initialization",
-            "progress": 5,
-            "error": None,
-        }
-        if on_progress:
-            on_progress(5, "initialization")
+            self._active_jobs_state[job_id] = {
+                "status": "processing",
+                "stage": "initialization",
+                "progress": 5,
+                "error": None,
+            }
+            if on_progress:
+                on_progress(5, "initialization")
 
-        # Dynamic execution thread count (sensible allocation on CPU)
-        if threads is None or threads <= 0:
-            cpu_cores = os.cpu_count() or 4
-            threads = min(cpu_cores, 4)
+            # Dynamic execution thread count (sensible allocation on CPU)
+            if threads is None or threads <= 0:
+                cpu_cores = os.cpu_count() or 4
+                threads = min(cpu_cores, 4)
 
-        video_preset = "ultrafast" if fast_mode else "fast"
-        video_quality = "75" if fast_mode else "85"
+            video_preset = "ultrafast" if fast_mode else "fast"
+            video_quality = "75" if fast_mode else "85"
 
-        # Command for FaceFusion pinned 3.9.2
-        cmd = [
-            str(self.python_exe),
-            "facefusion.py",
-            "headless-run",
-            "-s", abs_source,
-            "-t", abs_target,
-            "-o", raw_output,
-            "--processors", "face_swapper",
-            "--face-swapper-model", "ghost_1_256",
-            "--execution-providers", "cpu",
-            "--execution-thread-count", str(threads),
-            "--video-memory-strategy", "moderate",
-            "--temp-frame-format", "jpeg",
-            "--output-video-preset", video_preset,
-            "--output-video-quality", video_quality,
-            "--output-audio-encoder", "aac",
-            "--log-level", "info",
-        ]
+            # Command for FaceFusion pinned 3.9.2
+            cmd = [
+                str(self.python_exe),
+                "facefusion.py",
+                "headless-run",
+                "-s", abs_source,
+                "-t", abs_target,
+                "-o", raw_output,
+                "--processors", "face_swapper",
+                "--face-swapper-model", "ghost_1_256",
+                "--execution-providers", "cpu",
+                "--execution-thread-count", str(threads),
+                "--face-selector-mode", face_selector_mode,
+                "--face-detector-model", "yolo_face",
+                "--face-detector-score", str(face_detector_score),
+                "--face-landmarker-model", "2dfan4",
+                "--face-landmarker-score", str(face_landmarker_score),
+                "--reference-frame-number", str(reference_frame_number if reference_frame_number is not None else 0),
+                "--reference-face-distance", str(reference_face_distance),
+                "--face-mask-types", "box",
+                "--face-mask-blur", "0.3",
+                "--video-memory-strategy", "moderate",
+                "--temp-frame-format", "jpeg",
+                "--output-video-preset", video_preset,
+                "--output-video-quality", video_quality,
+                "--output-audio-encoder", "aac",
+                "--log-level", "info",
+            ]
 
-        logger.info(f"Launching FaceFusion CLI for job {job_id}: {' '.join(cmd)}")
-        env = get_configured_env()
+            logger.info(f"Launching FaceFusion CLI for job {job_id}: {' '.join(cmd)}")
+            env = get_configured_env()
 
-        progress_pattern = re.compile(r"(\d+)%\|")
-        frame_pattern = re.compile(r"processing:\s+(\d+)/(\d+)")
-        loop = asyncio.get_running_loop()
+            progress_pattern = re.compile(r"(\d+)%\|")
+            frame_pattern = re.compile(r"processing:\s+(\d+)/(\d+)")
+            loop = asyncio.get_running_loop()
 
-        def _execute_cli_sync():
-            proc = subprocess.Popen(
-                cmd,
-                cwd=str(self.facefusion_dir),
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                universal_newlines=True,
-                encoding="utf-8",
-                errors="replace",
-            )
-            self._active_processes[job_id] = proc
-            captured_logs = []
+            def _execute_cli_sync():
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=str(self.facefusion_dir),
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+                self._active_processes[job_id] = proc
+                captured_logs = []
+
+                try:
+                    for raw_line in proc.stdout:
+                        line = raw_line.strip()
+                        if not line:
+                            continue
+                        captured_logs.append(line)
+                        logger.info(f"[FaceFusion CLI] {line}")
+
+                        match_pct = progress_pattern.search(line)
+                        match_frame = frame_pattern.search(line)
+                        pct = None
+                        if match_pct:
+                            pct = int(match_pct.group(1))
+                        elif match_frame:
+                            curr, total = int(match_frame.group(1)), int(match_frame.group(2))
+                            if total > 0:
+                                pct = int((curr / total) * 100)
+
+                        if pct is not None:
+                            scaled = 10 + int(pct * 0.75)
+                            self._active_jobs_state[job_id]["progress"] = scaled
+                            self._active_jobs_state[job_id]["stage"] = "face_swapping"
+                            if on_progress:
+                                loop.call_soon_threadsafe(on_progress, scaled, "face_swapping")
+
+                    proc.wait()
+                    return proc.returncode, captured_logs
+                finally:
+                    if proc.stdout:
+                        try:
+                            proc.stdout.close()
+                        except Exception:
+                            pass
+                    self._active_processes.pop(job_id, None)
 
             try:
-                for raw_line in proc.stdout:
-                    line = raw_line.strip()
-                    if not line:
-                        continue
-                    captured_logs.append(line)
-                    logger.info(f"[FaceFusion CLI] {line}")
+                returncode, captured_logs = await asyncio.to_thread(_execute_cli_sync)
 
-                    match_pct = progress_pattern.search(line)
-                    match_frame = frame_pattern.search(line)
-                    pct = None
-                    if match_pct:
-                        pct = int(match_pct.group(1))
-                    elif match_frame:
-                        curr, total = int(match_frame.group(1)), int(match_frame.group(2))
-                        if total > 0:
-                            pct = int((curr / total) * 100)
+                if returncode != 0:
+                    tail = "\n".join(captured_logs[-10:]) if captured_logs else "No CLI output captured."
+                    err_msg = f"FaceFusion engine exited with non-zero code {returncode}. Recent logs:\n{tail}"
+                    logger.error(err_msg)
+                    self._active_jobs_state[job_id]["status"] = "failed"
+                    self._active_jobs_state[job_id]["error"] = err_msg
+                    if os.path.exists(raw_output):
+                        try:
+                            os.remove(raw_output)
+                        except Exception:
+                            pass
+                    raise RuntimeError(err_msg)
 
-                    if pct is not None:
-                        scaled = 10 + int(pct * 0.75)
-                        self._active_jobs_state[job_id]["progress"] = scaled
-                        self._active_jobs_state[job_id]["stage"] = "face_swapping"
-                        if on_progress:
-                            loop.call_soon_threadsafe(on_progress, scaled, "face_swapping")
+                # Stage: Face Replacement Verification
+                self._active_jobs_state[job_id]["stage"] = "verification"
+                self._active_jobs_state[job_id]["progress"] = 85
+                if on_progress:
+                    on_progress(85, "verification")
 
-                proc.wait()
-                return proc.returncode, captured_logs
-            finally:
-                if proc.stdout:
-                    try:
-                        proc.stdout.close()
-                    except Exception:
-                        pass
-                self._active_processes.pop(job_id, None)
+                verification_res = await asyncio.to_thread(
+                    self.verify_swap_execution,
+                    abs_target,
+                    raw_output,
+                    sampled_face_frames or ([reference_frame_number] if reference_frame_number is not None else [0]),
+                )
+                logger.info("Face swap verification for job %s: %s", job_id, verification_res)
 
-        try:
-            returncode, captured_logs = await asyncio.to_thread(_execute_cli_sync)
+                if not verification_res.get("verified", False):
+                    err_msg = (
+                        f"Face replacement verification failed: Target face was not replaced in rendered frames "
+                        f"(face pixel diff: {verification_res.get('avg_face_diff', 0)}, background diff: {verification_res.get('avg_bg_diff', 0)}). "
+                        f"Output was unmodified."
+                    )
+                    logger.error(err_msg)
+                    self._active_jobs_state[job_id]["status"] = "failed"
+                    self._active_jobs_state[job_id]["error"] = err_msg
+                    if os.path.exists(raw_output):
+                        try:
+                            os.remove(raw_output)
+                        except Exception:
+                            pass
+                    raise RuntimeError(err_msg)
 
-            if returncode != 0:
-                tail = "\n".join(captured_logs[-10:]) if captured_logs else "No CLI output captured."
-                err_msg = f"FaceFusion engine exited with non-zero code {returncode}. Recent logs:\n{tail}"
-                logger.error(err_msg)
-                self._active_jobs_state[job_id]["status"] = "failed"
-                self._active_jobs_state[job_id]["error"] = err_msg
+                # Stage: Watermarking
+                self._active_jobs_state[job_id]["stage"] = "watermarking"
+                self._active_jobs_state[job_id]["progress"] = 92
+                if on_progress:
+                    on_progress(92, "watermarking")
+
+                await self.apply_watermark(raw_output, abs_final_output)
+
+                # Clean raw unwatermarked output
                 if os.path.exists(raw_output):
                     try:
                         os.remove(raw_output)
                     except Exception:
                         pass
-                raise RuntimeError(err_msg)
 
-            # Stage: Watermarking
-            self._active_jobs_state[job_id]["stage"] = "watermarking"
-            self._active_jobs_state[job_id]["progress"] = 90
-            if on_progress:
-                on_progress(90, "watermarking")
+                # Stage: Metadata Validation via FFprobe
+                meta = self.inspect_video_metadata(abs_final_output)
+                meta["verification"] = verification_res
 
-            await self.apply_watermark(raw_output, abs_final_output)
+                self._active_jobs_state[job_id]["status"] = "completed"
+                self._active_jobs_state[job_id]["stage"] = "completed"
+                self._active_jobs_state[job_id]["progress"] = 100
+                if on_progress:
+                    on_progress(100, "completed")
 
-            # Clean raw unwatermarked output
-            if os.path.exists(raw_output):
-                try:
-                    os.remove(raw_output)
-                except Exception:
-                    pass
-
-            # Stage: Metadata Validation via FFprobe
-            meta = self.inspect_video_metadata(abs_final_output)
-
-            self._active_jobs_state[job_id]["status"] = "completed"
-            self._active_jobs_state[job_id]["stage"] = "completed"
-            self._active_jobs_state[job_id]["progress"] = 100
-            if on_progress:
-                on_progress(100, "completed")
-
-            return {
-                "status": "completed",
-                "output_path": abs_final_output,
-                "metadata": meta,
-            }
-        except Exception as exc:
-            self._active_jobs_state[job_id]["status"] = "failed"
-            self._active_jobs_state[job_id]["error"] = str(exc)
-            raise
+                return {
+                    "status": "completed",
+                    "output_path": abs_final_output,
+                    "metadata": meta,
+                    "verification": verification_res,
+                }
+            except Exception as exc:
+                self._active_jobs_state[job_id]["status"] = "failed"
+                self._active_jobs_state[job_id]["error"] = str(exc)
+                raise
 
     def cancel_job(self, job_id: str) -> bool:
         """Terminates running FaceFusion process if active."""

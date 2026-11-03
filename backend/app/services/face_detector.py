@@ -2,7 +2,7 @@ import logging
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 
@@ -212,6 +212,83 @@ class FaceDetectorYuNet:
             len(sampled_frames),
         )
         return all_detections
+
+    def validate_face_image(self, image_path: Path) -> Tuple[bool, Optional[str], Optional[DetectedFace]]:
+        """
+        Validates that a target face photo exists, is decodable, and contains at least one clear face.
+        Returns: (is_valid, error_message, primary_detected_face)
+        """
+        if not image_path.exists():
+            return False, f"Target face image file does not exist: {image_path.name}", None
+
+        img = cv2.imread(str(image_path))
+        if img is None:
+            return False, f"Target face image could not be decoded: {image_path.name}", None
+
+        h, w = img.shape[:2]
+        if w < 64 or h < 64:
+            return False, f"Target face image resolution is too low ({w}x{h} px). Minimum required: 64x64 px.", None
+
+        faces = self.detect_in_bgr_frame(img)
+        if not faces:
+            return False, "No human face was detected in the target photo. Please upload a clear, front-facing portrait.", None
+
+        # Select primary face by confidence * area
+        primary = max(faces, key=lambda f: f.confidence * (f.bbox[2] * f.bbox[3]))
+        if primary.confidence < 0.45:
+            return False, f"Face detected in target image has low confidence ({primary.confidence:.2f}). Please upload a clearer photo.", None
+
+        if primary.bbox[2] < 32 or primary.bbox[3] < 32:
+            return False, "Face detected is too small or distant in the frame. Please upload a closer portrait.", None
+
+        return True, None, primary
+
+    def inspect_video_for_faces(
+        self,
+        video_path: Path,
+        max_scan_frames: int = 150,
+        scan_step: int = 2,
+    ) -> Tuple[List[Dict[str, Any]], Optional[int]]:
+        """
+        Scans frames across video to find frames containing faces and determine optimal reference frame.
+        Returns: (detected_frames_list, best_reference_frame_index)
+        """
+        cap = cv2.VideoCapture(str(video_path))
+        if not cap.isOpened():
+            return [], None
+
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        detected_frames = []
+        best_frame_idx = None
+        best_score = -1.0
+
+        limit = min(total_frames, max_scan_frames) if total_frames > 0 else max_scan_frames
+
+        try:
+            curr_frame = 0
+            while curr_frame < limit:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, curr_frame)
+                ret, frame = cap.read()
+                if not ret or frame is None:
+                    break
+
+                faces = self.detect_in_bgr_frame(frame, frame_index=curr_frame)
+                if faces:
+                    detected_frames.append({
+                        "frame_index": curr_frame,
+                        "faces": faces,
+                    })
+                    primary = max(faces, key=lambda f: f.confidence * (f.bbox[2] * f.bbox[3]))
+                    score = primary.confidence * (primary.bbox[2] * primary.bbox[3])
+                    if score > best_score:
+                        best_score = score
+                        best_frame_idx = curr_frame
+
+                curr_frame += scan_step
+        finally:
+            cap.release()
+
+        return detected_frames, best_frame_idx
 
 
 _shared_yunet_detector: Optional[FaceDetectorYuNet] = None

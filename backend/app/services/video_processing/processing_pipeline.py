@@ -16,6 +16,7 @@ from app.services.storage_service import (
 )
 from app.services.project_service import current_iso_timestamp
 from app.services.facefusion_engine import FaceFusionEngine, get_facefusion_engine
+from app.services.face_detector import get_shared_yunet_detector
 
 logger = logging.getLogger("bollyswap.services.video_processing.pipeline")
 
@@ -166,24 +167,42 @@ class VideoProcessingPipeline:
         if not face_path.exists():
             raise FileNotFoundError(f"Target face file missing from disk: {face_path.name}")
 
+        # 4a. Validate replacement face image
+        detector = get_shared_yunet_detector()
+        is_valid_face, face_err, primary_target_face = detector.validate_face_image(face_path)
+        if not is_valid_face:
+            logger.warning("Target face validation failed: %s", face_err)
+            raise ValueError(face_err or "Target face image does not contain a detectable human face.")
+
+        # 4b. Inspect source video for faces & find optimal reference frame
+        detected_frames, best_ref_frame = detector.inspect_video_for_faces(video_path)
+        if not detected_frames or best_ref_frame is None:
+            logger.warning("No human faces detected in source video %s", video_path.name)
+            raise ValueError("No human faces detected in source video. Face swap requires a video with visible human faces.")
+
+        reference_frame_number = best_ref_frame
+        sampled_face_frames = [df["frame_index"] for df in detected_frames]
+        face_selector_mode = "reference"
+
         # 5. Verify selected actor track if present
         detected_tracks = project.get("detected_tracks", [])
         if selected_actor_track_id and detected_tracks:
-            valid_track = any(
-                t.get("track_id") == selected_actor_track_id or t.get("trackId") == selected_actor_track_id
-                for t in detected_tracks
-            )
-            if not valid_track:
-                # Also check detection_jobs collection
+            matched_track = next((t for t in detected_tracks if t.get("track_id") == selected_actor_track_id or t.get("trackId") == selected_actor_track_id), None)
+            if not matched_track:
                 det_jobs_col = self.db_service.get_collection("detection_jobs")
                 det_doc = await det_jobs_col.find_one({"project_id": project_id})
                 if det_doc and "tracks" in det_doc:
-                    valid_track = any(
-                        t.get("track_id") == selected_actor_track_id or t.get("trackId") == selected_actor_track_id
-                        for t in det_doc["tracks"]
-                    )
-            if not valid_track:
-                # Default to first available track rather than hard-failing
+                    matched_track = next((t for t in det_doc["tracks"] if t.get("track_id") == selected_actor_track_id or t.get("trackId") == selected_actor_track_id), None)
+
+            if matched_track:
+                timestamps = matched_track.get("timestamps") or []
+                if timestamps:
+                    fps_val = 30.0
+                    calc_frame = int(round(timestamps[0] * fps_val))
+                    close_match = next((f for f in sampled_face_frames if abs(f - calc_frame) <= 3), None)
+                    if close_match is not None:
+                        reference_frame_number = close_match
+            else:
                 first_track = detected_tracks[0].get("track_id") or detected_tracks[0].get("trackId") or "actor_1"
                 logger.info(
                     "Selected track '%s' not found in project '%s'; defaulting to '%s'",
@@ -217,6 +236,12 @@ class VideoProcessingPipeline:
             "completed_at": None,
             "output_video_id": None,
             "output_video_url": None,
+            "metadata": {
+                "reference_frame_number": reference_frame_number,
+                "face_selector_mode": face_selector_mode,
+                "target_face_detected": True,
+                "target_face_confidence": primary_target_face.confidence if primary_target_face else 1.0,
+            },
         }
 
         await swap_jobs_col.insert_one(job_doc)
@@ -230,6 +255,9 @@ class VideoProcessingPipeline:
                     project_id=project_id,
                     video_path=video_path,
                     face_path=face_path,
+                    reference_frame_number=reference_frame_number,
+                    face_selector_mode=face_selector_mode,
+                    sampled_face_frames=sampled_face_frames,
                     fast_mode=fast_mode,
                 )
             )
@@ -241,6 +269,9 @@ class VideoProcessingPipeline:
             project_id=project_id,
             video_path=video_path,
             face_path=face_path,
+            reference_frame_number=reference_frame_number,
+            face_selector_mode=face_selector_mode,
+            sampled_face_frames=sampled_face_frames,
             fast_mode=fast_mode,
         )
 
@@ -250,6 +281,9 @@ class VideoProcessingPipeline:
         project_id: str,
         video_path: Path,
         face_path: Path,
+        reference_frame_number: Optional[int] = None,
+        face_selector_mode: str = "reference",
+        sampled_face_frames: Optional[List[int]] = None,
         fast_mode: bool = False,
     ) -> SwapJobData:
         """
@@ -288,6 +322,12 @@ class VideoProcessingPipeline:
                 source_face_path=str(face_path),
                 target_video_path=str(video_path),
                 output_video_path=str(final_output_path),
+                reference_frame_number=reference_frame_number,
+                face_selector_mode=face_selector_mode,
+                reference_face_distance=0.6,
+                face_detector_score=0.45,
+                face_landmarker_score=0.45,
+                sampled_face_frames=sampled_face_frames,
                 on_progress=on_progress_sync,
                 threads=optimal_threads,
                 fast_mode=fast_mode,
@@ -320,6 +360,10 @@ class VideoProcessingPipeline:
 
             output_url = f"{self.settings.API_PREFIX}/files/{storage_res.upload_id}"
 
+            job_meta = res.get("metadata", {})
+            if "verification" in res:
+                job_meta["verification"] = res["verification"]
+
             completed_update = {
                 "status": "completed",
                 "progress": 1.0,
@@ -327,7 +371,7 @@ class VideoProcessingPipeline:
                 "completed_at": now,
                 "output_video_id": storage_res.upload_id,
                 "output_video_url": output_url,
-                "metadata": res.get("metadata", {}),
+                "metadata": job_meta,
             }
             await swap_jobs_col.update_one({"job_id": job_id}, {"$set": completed_update})
             await processing_jobs_col.update_one({"job_id": job_id}, {"$set": completed_update})
