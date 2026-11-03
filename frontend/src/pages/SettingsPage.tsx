@@ -1,88 +1,150 @@
 import React, { useState } from 'react';
 import {
-  User,
   Sliders,
-  Check,
   Save,
-  Server,
-  Activity,
-  RotateCcw,
+  Waves,
+  Shield,
+  Film,
+  CheckCircle2,
 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
-import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
-import { Badge } from '../components/common/Badge';
+
+/* ─── small helpers ──────────────────────────────────────────── */
+
+const inputCls =
+  'w-full rounded-xl px-3.5 py-2.5 text-sm focus:outline-none transition-colors border';
+const inputStyle = {
+  backgroundColor: 'var(--bg-input)',
+  borderColor: 'var(--border)',
+  color: 'var(--text-primary)',
+};
+
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+      {children}
+    </span>
+  );
+}
+
+function SectionCard({
+  icon: Icon,
+  title,
+  subtitle,
+  children,
+  accent = '#D6AD65',
+}: {
+  icon: React.ElementType;
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+  accent?: string;
+}) {
+  return (
+    <div
+      className="rounded-2xl border overflow-hidden"
+      style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}
+    >
+      {/* Card header */}
+      <div
+        className="flex items-center gap-3 px-5 py-4 border-b"
+        style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-input)' }}
+      >
+        <div
+          className="p-2 rounded-lg shrink-0"
+          style={{ background: `${accent}18`, color: accent }}
+        >
+          <Icon className="w-4 h-4" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {title}
+          </h3>
+          <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            {subtitle}
+          </p>
+        </div>
+      </div>
+      {/* Card body */}
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-3 border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
+      <div>
+        <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{label}</p>
+        {description && (
+          <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{description}</p>
+        )}
+      </div>
+      {/* Toggle switch */}
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className="relative w-10 h-5.5 rounded-full transition-colors shrink-0 focus:outline-none"
+        style={{
+          background: checked ? '#D6AD65' : 'var(--bg-input)',
+          border: `1px solid ${checked ? '#D6AD65' : 'var(--border)'}`,
+          width: 40,
+          height: 22,
+        }}
+        aria-checked={checked}
+        role="switch"
+      >
+        <span
+          className="absolute top-0.5 rounded-full bg-white shadow-sm transition-all"
+          style={{
+            width: 17,
+            height: 17,
+            left: checked ? 20 : 2,
+            top: 2,
+          }}
+        />
+      </button>
+    </div>
+  );
+}
+
+/* ─── main page ──────────────────────────────────────────────── */
 
 export const SettingsPage: React.FC = () => {
   const {
     settings,
-    updateProfile,
     updatePreferences,
-    updateApiConfig,
-    testBackendConnection,
-    resetToDefaultDemoData,
   } = useSettings();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'api'>('profile');
-  const [profileForm, setProfileForm] = useState(settings.profile);
   const [prefsForm, setPrefsForm] = useState(settings.preferences);
-  const [apiForm, setApiForm] = useState({
-    backendUrl: settings.apiConfig.backendUrl,
-    apiKey: settings.apiConfig.apiKey,
-    useLiveBackend: settings.apiConfig.useLiveBackend,
-  });
-  const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const triggerSuccessBanner = () => {
+  const flash = () => {
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
-  };
-
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateProfile(profileForm);
-    triggerSuccessBanner();
   };
 
   const handleSavePreferences = (e: React.FormEvent) => {
     e.preventDefault();
     updatePreferences(prefsForm);
-    triggerSuccessBanner();
-  };
-
-  const handleSaveApiConfig = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateApiConfig({
-      backendUrl: apiForm.backendUrl.trim(),
-      apiKey: apiForm.apiKey.trim(),
-      useLiveBackend: apiForm.useLiveBackend,
-    });
-    triggerSuccessBanner();
-  };
-
-  const handleTestConnection = async () => {
-    setIsTesting(true);
-    setTestResult(null);
-    try {
-      updateApiConfig({ backendUrl: apiForm.backendUrl.trim() });
-      const ok = await testBackendConnection();
-      if (ok) {
-        setTestResult('Successfully connected to BollySwap backend!');
-      } else {
-        setTestResult('Backend unreachable. Running in offline/demo mode.');
-      }
-    } catch {
-      setTestResult('Connection failed. Please check the URL and CORS settings.');
-    } finally {
-      setIsTesting(false);
-    }
+    flash();
   };
 
   return (
-    <div className="space-y-6 pb-12 max-w-4xl mx-auto">
-      {/* Header */}
+    <div className="space-y-8 pb-16 max-w-3xl mx-auto">
+
+      {/* ── Page Title ── */}
       <div>
         <h1
           className="text-2xl sm:text-3xl font-cinematic font-bold flex items-center gap-2.5"
@@ -91,365 +153,112 @@ export const SettingsPage: React.FC = () => {
           <Sliders className="w-6 h-6 text-[#D6AD65]" />
           Settings
         </h1>
-        <p className="text-xs sm:text-sm" style={{ color: 'var(--text-faint)' }}>
-          Manage your profile and processing preferences
+        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+          Configure your processing preferences.
         </p>
       </div>
 
-      {/* Success Notification */}
+      {/* ── Success toast ── */}
       {saveSuccess && (
-        <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 flex items-center gap-2.5 text-xs text-emerald-400">
-          <Check className="w-4 h-4 text-emerald-400" />
-          <span>Settings saved successfully.</span>
+        <div className="flex items-center gap-2.5 p-3.5 rounded-xl text-sm text-emerald-400 border bg-emerald-950/30 border-emerald-500/30">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          Settings saved successfully.
         </div>
       )}
 
-      {/* Settings Navigation Tabs */}
-      <div className="flex border-b space-x-6 text-sm" style={{ borderColor: 'var(--border)' }}>
-        <button
-          onClick={() => setActiveTab('profile')}
-          className="pb-3 font-medium transition-colors cursor-pointer flex items-center gap-2"
-          style={{
-            color: activeTab === 'profile' ? 'var(--gold)' : 'var(--text-muted)',
-            borderBottom: activeTab === 'profile' ? '2px solid var(--gold)' : '2px solid transparent',
-          }}
-        >
-          <User className="w-4 h-4" />
-          Profile
-        </button>
+      {/* ── Preferences ── */}
+      <SectionCard
+        icon={Sliders}
+        title="Processing Preferences"
+        subtitle="Default output quality and pipeline behaviour"
+      >
+        <form onSubmit={handleSavePreferences} className="space-y-5">
 
-        <button
-          onClick={() => setActiveTab('preferences')}
-          className="pb-3 font-medium transition-colors cursor-pointer flex items-center gap-2"
-          style={{
-            color: activeTab === 'preferences' ? 'var(--gold)' : 'var(--text-muted)',
-            borderBottom: activeTab === 'preferences' ? '2px solid var(--gold)' : '2px solid transparent',
-          }}
-        >
-          <Sliders className="w-4 h-4" />
-          Preferences
-        </button>
+          {/* Two select dropdowns */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label>Export Resolution</Label>
+              <select
+                value={prefsForm.defaultResolution}
+                onChange={e => setPrefsForm({ ...prefsForm, defaultResolution: e.target.value as any })}
+                className={inputCls}
+                style={inputStyle}
+              >
+                <option value="720p">720p — HD</option>
+                <option value="1080p">1080p — Full HD</option>
+                <option value="4k">4K — Ultra HD</option>
+              </select>
+            </div>
 
-        <button
-          onClick={() => setActiveTab('api')}
-          className="pb-3 font-medium transition-colors cursor-pointer flex items-center gap-2"
-          style={{
-            color: activeTab === 'api' ? 'var(--gold)' : 'var(--text-muted)',
-            borderBottom: activeTab === 'api' ? '2px solid var(--gold)' : '2px solid transparent',
-          }}
-        >
-          <Server className="w-4 h-4" />
-          API Connection
-        </button>
+            <div>
+              <Label>Compliance Watermark</Label>
+              <select
+                value={prefsForm.watermarkPlacement}
+                onChange={e => setPrefsForm({ ...prefsForm, watermarkPlacement: e.target.value as any })}
+                className={inputCls}
+                style={inputStyle}
+              >
+                <option value="bottom-right">Bottom-Right</option>
+                <option value="bottom-left">Bottom-Left</option>
+                <option value="none">Disabled</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Toggles */}
+          <div
+            className="rounded-xl border overflow-hidden"
+            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-input)' }}
+          >
+            <ToggleRow
+              label="Auto Face Enhancement"
+              description="Sharpens and colour-corrects each swapped frame automatically."
+              checked={prefsForm.autoFaceEnhance}
+              onChange={v => setPrefsForm({ ...prefsForm, autoFaceEnhance: v })}
+            />
+            <ToggleRow
+              label="Preserve Original Audio"
+              description="Re-mux original AAC stereo audio into the output MP4."
+              checked={prefsForm.audioPassthrough}
+              onChange={v => setPrefsForm({ ...prefsForm, audioPassthrough: v })}
+            />
+            <ToggleRow
+              label="Notify on Job Complete"
+              description="Browser notification when face swap finishes."
+              checked={prefsForm.sendNotificationOnComplete}
+              onChange={v => setPrefsForm({ ...prefsForm, sendNotificationOnComplete: v })}
+            />
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <Button type="submit" size="sm" variant="primary" leftIcon={<Save className="w-3.5 h-3.5" />}>
+              Save Preferences
+            </Button>
+          </div>
+        </form>
+      </SectionCard>
+
+      {/* ── Info row ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {[
+          { icon: Shield,  label: 'Local Only',     desc: 'No biometric data leaves your device.' },
+          { icon: Film,    label: 'Ghost-256 CPU',  desc: 'Apache-2.0 licensed ONNX model.' },
+          { icon: Waves,   label: 'Audio Preserved', desc: 'AAC 48 kHz stereo re-mux.' },
+        ].map(item => (
+          <div
+            key={item.label}
+            className="flex items-start gap-3 p-4 rounded-xl border"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}
+          >
+            <item.icon className="w-4 h-4 mt-0.5 shrink-0 text-[#D6AD65]" />
+            <div>
+              <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{item.label}</p>
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{item.desc}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Tab 1: Profile */}
-      {activeTab === 'profile' && (
-        <Card className="p-6">
-          <form onSubmit={handleSaveProfile} className="space-y-6">
-            <div
-              className="flex flex-col sm:flex-row sm:items-center gap-5 pb-6 border-b"
-              style={{ borderColor: 'var(--border)' }}
-            >
-              <img
-                src={profileForm.avatarUrl}
-                alt={profileForm.name}
-                className="w-20 h-20 rounded-2xl object-cover border-2"
-                style={{ borderColor: 'var(--gold)' }}
-              />
-              <div className="space-y-1">
-                <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  {profileForm.name}
-                </h3>
-                <p className="text-xs" style={{ color: 'var(--gold)' }}>
-                  {profileForm.role}
-                </p>
-                <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
-                  {profileForm.studioName}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="font-mono block" style={{ color: 'var(--text-secondary)' }}>
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={profileForm.name}
-                  onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                  className="w-full rounded-xl px-3.5 py-2 text-xs focus:outline-none transition-colors border"
-                  style={{
-                    backgroundColor: 'var(--bg-input)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text-primary)',
-                  }}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-mono block" style={{ color: 'var(--text-secondary)' }}>
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={profileForm.email}
-                  onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                  className="w-full rounded-xl px-3.5 py-2 text-xs focus:outline-none transition-colors border"
-                  style={{
-                    backgroundColor: 'var(--bg-input)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text-primary)',
-                  }}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-mono block" style={{ color: 'var(--text-secondary)' }}>
-                  Organization
-                </label>
-                <input
-                  type="text"
-                  value={profileForm.studioName}
-                  onChange={(e) => setProfileForm({ ...profileForm, studioName: e.target.value })}
-                  className="w-full rounded-xl px-3.5 py-2 text-xs focus:outline-none transition-colors border"
-                  style={{
-                    backgroundColor: 'var(--bg-input)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text-primary)',
-                  }}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-mono block" style={{ color: 'var(--text-secondary)' }}>
-                  Role
-                </label>
-                <input
-                  type="text"
-                  value={profileForm.role}
-                  onChange={(e) => setProfileForm({ ...profileForm, role: e.target.value })}
-                  className="w-full rounded-xl px-3.5 py-2 text-xs focus:outline-none transition-colors border"
-                  style={{
-                    backgroundColor: 'var(--bg-input)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text-primary)',
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="pt-4 border-t flex justify-end" style={{ borderColor: 'var(--border)' }}>
-              <Button type="submit" size="sm" variant="primary" leftIcon={<Save className="w-3.5 h-3.5" />}>
-                Save Profile
-              </Button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      {/* Tab 2: Preferences */}
-      {activeTab === 'preferences' && (
-        <Card className="p-6">
-          <form onSubmit={handleSavePreferences} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
-              <div className="space-y-1.5">
-                <label className="font-mono block" style={{ color: 'var(--text-secondary)' }}>
-                  Default Export Quality
-                </label>
-                <select
-                  value={prefsForm.defaultResolution}
-                  onChange={(e) =>
-                    setPrefsForm({ ...prefsForm, defaultResolution: e.target.value as any })
-                  }
-                  className="w-full rounded-xl px-3.5 py-2 text-xs focus:outline-none transition-colors border"
-                  style={{
-                    backgroundColor: 'var(--bg-input)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text-primary)',
-                  }}
-                >
-                  <option value="720p">720p</option>
-                  <option value="1080p">1080p Full HD</option>
-                  <option value="4k">4K</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-mono block" style={{ color: 'var(--text-secondary)' }}>
-                  Watermark
-                </label>
-                <select
-                  value={prefsForm.watermarkPlacement}
-                  onChange={(e) =>
-                    setPrefsForm({ ...prefsForm, watermarkPlacement: e.target.value as any })
-                  }
-                  className="w-full rounded-xl px-3.5 py-2 text-xs focus:outline-none transition-colors border"
-                  style={{
-                    backgroundColor: 'var(--bg-input)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text-primary)',
-                  }}
-                >
-                  <option value="bottom-right">Bottom-Right</option>
-                  <option value="bottom-left">Bottom-Left</option>
-                  <option value="none">No Watermark</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-3 pt-2">
-              <label className="flex items-center gap-2.5 cursor-pointer text-xs">
-                <input
-                  type="checkbox"
-                  checked={prefsForm.autoFaceEnhance}
-                  onChange={(e) =>
-                    setPrefsForm({ ...prefsForm, autoFaceEnhance: e.target.checked })
-                  }
-                  className="rounded text-[#D6AD65]"
-                />
-                <span style={{ color: 'var(--text-primary)' }}>Enable face enhancement by default</span>
-              </label>
-
-              <label className="flex items-center gap-2.5 cursor-pointer text-xs">
-                <input
-                  type="checkbox"
-                  checked={prefsForm.audioPassthrough}
-                  onChange={(e) =>
-                    setPrefsForm({ ...prefsForm, audioPassthrough: e.target.checked })
-                  }
-                  className="rounded text-[#D6AD65]"
-                />
-                <span style={{ color: 'var(--text-primary)' }}>Preserve original audio in output video</span>
-              </label>
-            </div>
-
-            <div className="pt-4 border-t flex justify-end" style={{ borderColor: 'var(--border)' }}>
-              <Button type="submit" size="sm" variant="primary" leftIcon={<Save className="w-3.5 h-3.5" />}>
-                Save Preferences
-              </Button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      {/* Tab 3: API Connection */}
-      {activeTab === 'api' && (
-        <Card className="p-6">
-          <form onSubmit={handleSaveApiConfig} className="space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-              <div>
-                <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  Backend Integration
-                </h3>
-                <p className="text-xs" style={{ color: 'var(--text-faint)' }}>
-                  Connect your frontend to local FastAPI or deployed cloud microservices
-                </p>
-              </div>
-              <Badge variant={settings.apiConfig.useLiveBackend ? 'emerald' : 'gold'}>
-                {settings.apiConfig.useLiveBackend ? 'Live Backend Active' : 'Offline / Demo Mode'}
-              </Badge>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="font-mono block" style={{ color: 'var(--text-secondary)' }}>
-                  Backend API Base URL
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={apiForm.backendUrl}
-                    onChange={(e) => setApiForm({ ...apiForm, backendUrl: e.target.value })}
-                    placeholder="https://your-backend.onrender.com/api/v1 or http://127.0.0.1:8000/api/v1"
-                    className="flex-1 rounded-xl px-3.5 py-2 font-mono text-xs focus:outline-none transition-colors border"
-                    style={{
-                      backgroundColor: 'var(--bg-input)',
-                      borderColor: 'var(--border)',
-                      color: 'var(--text-primary)',
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    isLoading={isTesting}
-                    leftIcon={<Activity className="w-3.5 h-3.5" />}
-                    onClick={handleTestConnection}
-                  >
-                    Test Ping
-                  </Button>
-                </div>
-                <p className="text-[11px]" style={{ color: 'var(--text-faint)' }}>
-                  For local development use <code>http://127.0.0.1:8000/api/v1</code>. For production, specify your deployed HTTPS backend URL.
-                </p>
-              </div>
-
-              {testResult && (
-                <div
-                  className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${
-                    testResult.includes('Successfully')
-                      ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400'
-                      : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
-                  }`}
-                >
-                  <Activity className="w-4 h-4 shrink-0" />
-                  <span>{testResult}</span>
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label className="font-mono block" style={{ color: 'var(--text-secondary)' }}>
-                  API Key (Optional)
-                </label>
-                <input
-                  type="password"
-                  value={apiForm.apiKey}
-                  onChange={(e) => setApiForm({ ...apiForm, apiKey: e.target.value })}
-                  placeholder="Bearer token if authentication is enabled"
-                  className="w-full rounded-xl px-3.5 py-2 font-mono text-xs focus:outline-none transition-colors border"
-                  style={{
-                    backgroundColor: 'var(--bg-input)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text-primary)',
-                  }}
-                />
-              </div>
-
-              <div className="pt-2 space-y-2">
-                <label className="flex items-center gap-2.5 cursor-pointer text-xs">
-                  <input
-                    type="checkbox"
-                    checked={apiForm.useLiveBackend}
-                    onChange={(e) => setApiForm({ ...apiForm, useLiveBackend: e.target.checked })}
-                    className="rounded text-[#D6AD65]"
-                  />
-                  <span style={{ color: 'var(--text-primary)' }}>
-                    Enable live backend API calls (uncheck for pure offline demo playground)
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
-                onClick={resetToDefaultDemoData}
-              >
-                Reset Studio Data
-              </Button>
-
-              <Button type="submit" size="sm" variant="primary" leftIcon={<Save className="w-3.5 h-3.5" />}>
-                Save API Settings
-              </Button>
-            </div>
-          </form>
-        </Card>
-      )}
     </div>
   );
 };

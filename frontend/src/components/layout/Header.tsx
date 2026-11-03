@@ -2,7 +2,6 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, Plus, Sun, Moon } from 'lucide-react';
 import { Button } from '../common/Button';
-import { useSettings } from '../../context/SettingsContext';
 import { useTheme } from '../../context/ThemeContext';
 
 interface HeaderProps {
@@ -12,7 +11,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { settings } = useSettings();
   const { theme, toggleTheme } = useTheme();
 
   const getPageTitle = () => {
@@ -24,7 +22,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
       case '/projects':
         return { title: 'My Projects', sub: 'Your saved face swap projects' };
       case '/settings':
-        return { title: 'Settings', sub: 'Manage your profile and preferences' };
+        return { title: 'Settings', sub: 'Configure your processing preferences' };
       default:
         return { title: 'FaceSwap AI', sub: '' };
     }
@@ -96,31 +94,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
             <span className="sm:hidden">New</span>
           </Button>
         )}
-
-        {/* Profile Pill */}
-        <div
-          onClick={() => navigate('/settings')}
-          className="flex items-center gap-2.5 p-1.5 pr-3 rounded-xl transition-colors cursor-pointer"
-          style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-          }}
-        >
-          <img
-            src={settings.profile.avatarUrl}
-            alt={settings.profile.name}
-            className="w-8 h-8 rounded-lg object-cover"
-            style={{ border: '1px solid var(--gold)' }}
-          />
-          <div className="hidden xl:flex flex-col text-left">
-            <span className="text-xs font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
-              {settings.profile.name}
-            </span>
-            <span className="text-[10px] leading-tight" style={{ color: 'var(--text-faint)' }}>
-              {settings.profile.role.split('&')[0].trim()}
-            </span>
-          </div>
-        </div>
       </div>
     </header>
   );
